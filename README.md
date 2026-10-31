@@ -19,7 +19,7 @@ The existing plugin ID, `de.osz2.languagetool`, remains unchanged for update com
 - **Automatic checking:** enabled by default for new installations and can be disabled. Starts a check after a typing pause or at least every five seconds during continuous typing. Note text is sent automatically to the configured server; response times and ongoing edits can delay highlights.
 - **Markdown-friendly checking:** masks headings, links, code blocks, tables, and other Markdown syntax before checking, while preserving match positions.
 - **Personal dictionary and disabled rules/categories:** configurable in the plugin settings.
-- **Multilingual interface:** English is the default; German is available as a second interface language. The checking language is configured independently. Messages, suggestions, category names, and detected language names returned by LanguageTool are displayed as received. Documentation, source comments, and technical console diagnostics remain in English.
+- **Multilingual interface:** follows Joplin's interface language automatically by default. English, German, and French are supported, with English as the fallback. You can also select any supported language manually. The checking language is configured independently. Messages, suggestions, category names, and detected language names returned by LanguageTool are displayed as received. Documentation, source comments, and technical console diagnostics remain in English.
 
 ## Requirements
 
@@ -59,7 +59,7 @@ The match list has its own vertical scroll region. The header stays outside that
 
 | Setting | Default | Description |
 |---|---|---|
-| Interface language / Oberflächensprache | `English` | Choose `English` or `Deutsch`, then restart Joplin |
+| Interface language / Sprache / Langue | `Automatic (Joplin)` | Follow Joplin, or choose `English`, `Deutsch`, or `Français`; restart Joplin after changing |
 | Server URL | `https://api.languagetool.org/v2/check` | Free public API or self-hosted server |
 | Language | `auto` | For example, `de-DE`, `en-US`, or `auto` |
 | Mother tongue | `de-DE` | Helps apply rules for common language-learning mistakes |
@@ -74,15 +74,19 @@ Changing the interface language does not change existing settings or the `de-DE`
 
 ## Interface languages
 
-English is always the default for new installations, including when Joplin itself uses German. The plugin does not automatically follow Joplin's language.
+New installations default to **Automatic (Joplin)**. At plugin startup, the plugin reads Joplin's `locale` setting and selects English, German, or French. Regional variants are supported: for example, `de_DE`, `de-CH`, `fr_FR`, and `fr-CA` select their respective base language. Unsupported languages or unavailable locale information fall back to English.
 
-To enable German, open the plugin's LanguageTool settings, select `Deutsch` under **Interface language / Oberflächensprache**, save the setting, and restart Joplin. To return to English, select `English` and restart again. A restart applies the choice consistently to command/menu labels, settings descriptions, dialogs, accessibility labels, and plugin-generated error messages. Language selection does not apply immediately to an already running plugin.
+To override automatic detection, open the plugin's LanguageTool settings and select `English`, `Deutsch`, or `Français` under **Interface language / Sprache / Langue**, save the setting, and restart Joplin. Select `Automatic (Joplin)` to follow Joplin again. A restart applies the choice consistently to command/menu labels, settings descriptions, dialogs, accessibility labels, and plugin-generated error messages. Language selection does not apply immediately to an already running plugin.
 
-The language selector intentionally has a bilingual label and restart instruction so it remains recognizable in either interface language. The plugin's name and marketplace description remain English metadata. LanguageTool's own descriptions and suggestions, raw server errors, and detected language names are not translated by this plugin.
+Existing explicit choices from earlier releases are preserved: if version 1.4.0 stored `English` or `Deutsch`, that remains a manual override after updating. Select `Automatic (Joplin)` once to opt into automatic detection. The plugin never overwrites saved language choices, checking settings, or dictionary entries.
+
+The language selector intentionally has a multilingual label and restart instruction so it remains recognizable in all three interface languages. The plugin's name and marketplace description remain English metadata. LanguageTool's own descriptions and suggestions, raw server errors, and detected language names are not translated by this plugin.
+
+Automatic detection uses [`joplin.settings.globalValues(['locale'])`](https://joplinapp.org/api/references/plugin_api/classes/joplinsettings.html); `locale` is defined in [Joplin's built-in settings metadata](https://raw.githubusercontent.com/laurent22/joplin/dev/packages/lib/models/settings/builtInMetadata.ts). A compatibility fallback uses `globalValue('locale')` when only that older API is available. If no API is available or reading fails, the interface stays usable in English. Manual overrides do not need to read global settings.
 
 ### Adding another translation
 
-Translations live in `src/i18n.ts`. English source strings are the keys and the fallback; the German catalog supplies translations. Unsupported or missing language preferences fall back to English, as do missing individual translations.
+Translations live in `src/i18n.ts`. English source strings are the keys and fallback; the German and French catalogs supply translations. Missing preferences use automatic detection. Unsupported locales, invalid preferences, and missing individual translations fall back to English.
 
 To add a language:
 
@@ -107,7 +111,7 @@ Keep README content, developer documentation, and code comments in English. Do n
 
 ## Version and test status
 
-Version 1.4.0 adds an extensible translation catalog with English as the default interface and German as the second language. The interface language is selected in the plugin settings and applied after restarting Joplin. README content and code comments remain English. The author remains Kay Patzwald, the plugin ID stays unchanged, and checking defaults and replacement logic are preserved.
+Version 1.5.0 follows Joplin's interface language automatically by default and adds a complete French interface alongside English and German. Manual language choices are still available and previous explicit choices are preserved. Restart Joplin to apply a changed language preference. README content and code comments remain English. The author remains Kay Patzwald, the plugin ID stays unchanged, and checking defaults and replacement logic are preserved.
 
 Automated tests cover the editor integration using real CodeMirror state, native form values in a DOM environment, and main-script flows using a mocked Joplin API. Scroll-region structure and CSS are checked with 100 matches; these DOM tests do not measure actual screen dimensions. Tests require no running LanguageTool server and do not replace an end-to-end test in the Joplin GUI.
 
@@ -120,7 +124,7 @@ npm test
 npx tsc --noEmit --skipLibCheck --pretty false
 ```
 
-The form and main-script tests run in English and German and inspect actual values after selecting multiple suggestions. Editor tests verify atomic application and complete rejection of invalid or overlapping changes. Localization tests cover persisted language selection on startup, English defaults, unsupported language and missing-translation fallbacks, settings preservation, catalog coverage, placeholder consistency, escaped interpolation, and localized client errors. All HTTP responses in these tests are mocked.
+The form and main-script tests run in English, German, and French and inspect actual values after selecting multiple suggestions. Editor tests verify atomic application and complete rejection of invalid or overlapping changes. Localization tests cover automatic Joplin locale detection, regional variants, manual overrides and upgrade preservation, current and legacy API paths, missing or failing APIs, English fallbacks, settings preservation, catalog coverage, placeholder consistency, escaped interpolation, and localized client errors. All HTTP responses and Joplin locale reads in these tests are mocked.
 
 ## License
 
