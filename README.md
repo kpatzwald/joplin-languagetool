@@ -42,8 +42,8 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 
 1. Notiz öffnen und mit Markdown-Editor bearbeiten.
 2. **Strg+Umschalt+P** → „LanguageTool: Notiz prüfen" (oder Werkzeuge-Menü / Symbolleistenschaltfläche).
-3. Fehler werden farbig unterstrichen. **Rechtsklick** auf eine Fundstelle zeigt die Meldung und die Korrekturvorschläge an.
-4. Einen **Korrekturvorschlag auswählen** – er wird direkt in den Notiztext übernommen (seit v1.1.0).
+3. Fehler werden farbig unterstrichen. **Live-Prüfung:** Bereits beim Tippen wird automatisch geprüft (ca. 2 Sekunden nach der letzten Eingabe; abschaltbar). **Rechtsklick** auf eine Fundstelle zeigt die Meldung und die Korrekturvorschläge an.
+4. Einen **Korrekturvorschlag auswählen** – er wird direkt in den Notiztext übernommen (seit v1.1.0). Auch im **Ergebnisdialog** sind Vorschläge seit v1.2.0 klickbar: Die Korrektur wird angewendet und der Dialog zeigt danach die verbleibenden Fehler.
 5. Über das Rechtsklickmenü lassen sich Wörter ins eigene Wörterbuch aufnehmen oder einzelne Regeln deaktivieren; die Notiz wird danach automatisch neu geprüft.
 
 ## Einstellungen
@@ -53,8 +53,8 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 | Server-URL | `https://api.languagetool.org/v2/check` | öffentliche Gratis-API oder eigene Instanz |
 | Sprache | `auto` | z. B. `de-DE`, `en-US` oder `auto` |
 | Muttersprache | `de-DE` | verbessert Regeln für typische Fehler |
-| Automatisch prüfen | aus | Prüfung kurz nach dem Tippen |
-| Wartezeit | 3000 ms | nur bei automatischer Prüfung |
+| Automatisch prüfen | an | Prüfung bereits beim Tippen (ca. 2 s nach letzter Eingabe) |
+| Wartezeit | 2000 ms | Verzögerung der automatischen Prüfung |
 | Markdown-Syntax ausblenden | an | weniger Fehlalarme |
 | Deaktivierte Regeln / Kategorien | leer | kommagetrennte IDs |
 | Eigenes Wörterbuch | leer | komma- oder zeilengetrennt |
@@ -62,7 +62,7 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 
 ## Technische Hinweise und Grenzen
 
-- **Öffentliche Gratis-API:** anonyme Nutzung ist auf ca. 20 Anfragen pro Minute begrenzt; bei häufiger automatischer Prüfung oder vielen Fehlern kann die API daher vorübergehend Anfragen ablehnen. Eigene Instanz oder Premium-Account (Benutzername/API-Schlüssel in den Einstellungen) heben das Limit.
+- **Öffentliche Gratis-API:** anonyme Nutzung ist auf ca. 20 Anfragen pro Minute begrenzt. Die Live-Prüfung beim Tippen sendet nur eine Anfrage pro abgeschlossener Eingabepause (Debounce), langes ununterbrochenes Tippen kann das Limit aber erreichen – die API lehnt dann vorübergehend Anfragen ab. Eigene Instanz oder Premium-Account (Benutzername/API-Schlüssel in den Einstellungen) heben das Limit. Bei Meldung eines Limits lässt sich die Live-Prüfung in den Einstellungen abschalten.
 - Die Server-URL wird automatisch normalisiert: Fehlende Schemata (https://), überzählige Schrägstriche und der übliche Pfad `/v2/check` werden ergänzt – `https://languagetool.example.org` funktioniert also genauso wie `https://languagetool.example.org/v2/check`. Eigene Pfade (z. B. hinter einem Reverse-Proxy) bleiben unverändert.
 - Die Netzwerkkommunikation läuft ausschließlich zwischen Joplin und dem konfigurierten Server – es gibt keinen automatischen Fallback auf andere Dienste. **Hinweis Datenschutz:** Bei Verwendung der öffentlichen API werden die geprüften Textabschnitte an die Server von languagetool.org übertragen. Für sensible Notizen die eigene Instanz eintragen.
 - Prüfergebnisse sind an den Text gebunden, für den sie erzeugt wurden: Ändert sich der Notiztext oder wird die Notiz gewechselt, werden veraltete Ergebnisse verworfen und nicht mehr angewendet.

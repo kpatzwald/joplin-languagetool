@@ -16,6 +16,7 @@ function makeFixture(text) {
 	const extensions = [];
 	const commands = {};
 	const domListeners = {};
+	const messages = [];
 	let state;
 	let posAtCoordsResult = null; // null = Klick außerhalb des Texts
 
@@ -38,7 +39,7 @@ function makeFixture(text) {
 		registerCommand: (name, fn) => { commands[name] = fn; },
 	};
 
-	const mod = pluginFactory({ contentScriptId: 'test', postMessage: async () => null });
+	const mod = pluginFactory({ contentScriptId: 'test', postMessage: async (m) => { messages.push(m); return null; } });
 	mod.plugin(wrapper);
 	state = EditorState.create({ doc: text, extensions });
 
@@ -52,7 +53,7 @@ function makeFixture(text) {
 		return { count, ranges };
 	};
 
-	return { view, state: () => state, commands, decorations, domListeners };
+	return { view, state: () => state, commands, decorations, domListeners, messages };
 }
 
 const MISTAKE = (offset, word, type = 'spelling') => ({
@@ -183,6 +184,16 @@ async function run() {
 	assert.strictEqual(fx6.decorations().count, 1, 'Mark gesetzt');
 	fx6.view.dispatch({ changes: { from: 0, to: 4, insert: 'Dies' } });
 	assert.strictEqual(fx6.decorations().count, 0, 'Marks nach Textänderung verworfen');
+
+	// 13. Textänderungen werden für die Live-Prüfung an das Hauptskript gemeldet
+	const fx7 = makeFixture('Kurzer Text.');
+	fx7.messages.length = 0;
+	fx7.view.dispatch({ changes: { from: 0, to: 6, insert: 'Langer ' } });
+	assert.ok(
+		fx7.messages.some((m) => m && m.type === 'ltTextChanged'),
+		'Textänderung als ltTextChanged gemeldet',
+	);
+	assert.strictEqual(fx7.messages.filter((m) => m && m.type === 'ltTextChanged').length, 1, 'genau eine Meldung pro Änderung');
 
 	console.log('Alle Content-Script-Integrationstests bestanden.');
 }

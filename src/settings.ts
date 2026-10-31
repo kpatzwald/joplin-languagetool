@@ -47,7 +47,7 @@ export async function registerSettings(): Promise<void> {
 			description: 'Hilft LanguageTool bei Regeln, die typische Fehler von Muttersprachlern anderer Sprachen abdecken. Leer lassen zum Deaktivieren.',
 		},
 		'languagetool.autoCheck': {
-			value: false,
+			value: true,
 			type: SettingItemType.Bool,
 			section: 'languagetool',
 			public: true,
@@ -55,7 +55,7 @@ export async function registerSettings(): Promise<void> {
 			description: 'Prüft die Notiz automatisch einige Sekunden nach dem letzten Tastendruck. Achtung: Der Notiztext wird dabei automatisch an den LanguageTool-Server übertragen.',
 		},
 		'languagetool.autoCheckDelay': {
-			value: 3000,
+			value: 2000,
 			type: SettingItemType.Int,
 			section: 'languagetool',
 			public: true,
@@ -133,7 +133,7 @@ export async function getSettings(): Promise<PluginSettings> {
 		language: String(values[1] || 'auto'),
 		motherTongue: String(values[2] || ''),
 		autoCheck: Boolean(values[3]),
-		autoCheckDelay: Number(values[4] || 3000),
+		autoCheckDelay: Number(values[4] || 2000),
 		stripMarkdown: Boolean(values[5]),
 		disabledRules: String(values[6] || ''),
 		disabledCategories: String(values[7] || ''),
