@@ -169,6 +169,8 @@ function onBuildCompleted() {
 		validatePackageJson();
 	} catch (error) {
 		console.error(chalk.red(error.message));
+		// A failed archive must fail the build, not report a successful release.
+		throw error;
 	}
 }
 

@@ -2,8 +2,8 @@
 // Each bundle receives its own copy.
 import { t } from './i18n';
 
-// Maximum text length sent to LanguageTool. Matches the LanguageTool default
-// (configurable on the server using maxCheckLength).
+// Local maximum for custom servers, measured in UTF-16 string units.
+// The public service has a separate, smaller UTF-8 byte cap.
 export const LT_MAX_TEXT = 30000;
 
 // A match from the LanguageTool response (only the fields we need).

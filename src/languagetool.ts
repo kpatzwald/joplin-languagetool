@@ -7,6 +7,7 @@ export interface LTReplacement {
 
 import { LTMatch } from './common';
 import { t } from './i18n';
+import { displayEndpoint, isPublicEndpoint, PUBLIC_TEXT_BYTES, PublicRequestBudget, utf8Length } from './apiPolicy';
 export { LTMatch };
 
 export interface LTCheckResponse {
@@ -30,6 +31,7 @@ export interface LTCheckResponse {
 }
 
 export interface LTCheckOptions {
+	trigger: 'manual' | 'background';
 	url: string;
 	language: string;
 	motherTongue?: string;
@@ -49,13 +51,7 @@ export class LTError extends Error {
 	}
 }
 
-function hostOf(url: string): string {
-	try {
-		return new URL(url).host;
-	} catch {
-		return url;
-	}
-}
+const publicBudget = new PublicRequestBudget();
 
 // Normalizes the configured server URL: adds a missing scheme, removes
 // surrounding whitespace and trailing slashes, and appends the standard
@@ -85,6 +81,14 @@ export function normalizeCheckUrl(raw: string): string {
 }
 
 export async function checkText(text: string, options: LTCheckOptions): Promise<LTCheckResponse> {
+	const checkUrl = normalizeCheckUrl(options.url);
+	const publicService = isPublicEndpoint(checkUrl);
+	if (publicService) {
+		if (options.trigger !== 'manual') throw new LTError(t('The free public API only supports manually started checks.'));
+		if (new URL(checkUrl).protocol !== 'https:') throw new LTError(t('Use HTTPS for the public LanguageTool API.'));
+		if (utf8Length(text) > PUBLIC_TEXT_BYTES) throw new LTError(t('The public API text limit is 19000 UTF-8 bytes.'));
+		if (!publicBudget.reserve(utf8Length(text))) throw new LTError(t('Local public API limit reached. Wait at least one minute before checking again.'));
+	}
 	const body = new URLSearchParams();
 	body.set('text', text);
 	body.set('language', options.language && options.language.trim() ? options.language.trim() : 'auto');
@@ -95,10 +99,14 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 	if (options.apiKey && options.apiKey.trim()) body.set('apiKey', options.apiKey.trim());
 
 	let response: Response;
-	const checkUrl = normalizeCheckUrl(options.url);
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 20000);
 	try {
 		response = await fetch(checkUrl, {
 			method: 'POST',
+			// Never follow a redirect to an unapproved endpoint or public API.
+			redirect: 'error',
+			signal: controller.signal,
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
@@ -107,12 +115,20 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 	} catch (error) {
 		throw new LTError(
 			t('Server unreachable ({url}): {detail}', {
-				url: checkUrl, detail: error instanceof Error ? error.message : String(error),
+				url: displayEndpoint(checkUrl), detail: error instanceof Error ? error.message : String(error),
 			}),
 		);
+	} finally {
+		clearTimeout(timeout);
 	}
 
 	if (!response.ok) {
+		if (publicService && response.status === 429) {
+			const raw = response.headers?.get('Retry-After');
+			const seconds = raw && /^\d+$/.test(raw) ? Number(raw)
+				: raw ? (Date.parse(raw) - Date.now()) / 1000 : 60;
+			publicBudget.coolDown(Number.isFinite(seconds) ? seconds : 60);
+		}
 		let detail = '';
 		try {
 			const text = await response.text();
@@ -125,7 +141,7 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 			: '';
 		throw new LTError(
 			t('Server returned HTTP {status} ({url}){detail}{hint}', {
-				status: response.status, url: checkUrl, detail: detail ? `: ${detail}` : '', hint,
+				status: response.status, url: displayEndpoint(checkUrl), detail: detail ? `: ${detail}` : '', hint,
 			}),
 			response.status,
 		);
