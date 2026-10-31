@@ -14,6 +14,7 @@ export interface PluginSettings {
 	ignoredWords: string;
 	username: string;
 	apiKey: string;
+	approvedServer: string;
 }
 
 export async function registerSettings(): Promise<void> {
@@ -23,6 +24,10 @@ export async function registerSettings(): Promise<void> {
 	});
 
 	await joplin.settings.registerSettings({
+		// Approval is tied to the complete normalized endpoint, not a global opt-in.
+		'languagetool.approvedServer': {
+			value: '', type: SettingItemType.String, public: false, label: 'Approved server endpoint',
+		},
 		// Bootstrap this setting before reading its persisted value. Keep its
 		// label multilingual so it is recognizable in every supported language.
 		'languagetool.uiLanguage': {
@@ -78,12 +83,12 @@ export async function registerSettings(): Promise<void> {
 			description: 'Helps LanguageTool apply rules for common mistakes made by speakers of other languages. Leave empty to disable.',
 		},
 		'languagetool.autoCheck': {
-			value: true,
+			value: false,
 			type: SettingItemType.Bool,
 			section: 'languagetool',
 			public: true,
 			label: 'Check automatically',
-			description: 'Checks the note while typing: after the configured delay or starts a check at least every 5 seconds during continuous typing. Warning: this automatically sends the note text to the LanguageTool server.',
+			description: 'Only for self-hosted or authorized services, after server consent. Never used with the free public API. Automatically sends note text while typing.',
 		},
 		'languagetool.autoCheckDelay': {
 			value: 1000,
@@ -162,6 +167,7 @@ export async function getSettings(): Promise<PluginSettings> {
 		joplin.settings.value('languagetool.ignoredWords'),
 		joplin.settings.value('languagetool.username'),
 		joplin.settings.value('languagetool.apiKey'),
+		joplin.settings.value('languagetool.approvedServer'),
 	]);
 
 	return {
@@ -176,6 +182,7 @@ export async function getSettings(): Promise<PluginSettings> {
 		ignoredWords: String(values[8] || ''),
 		username: String(values[9] || ''),
 		apiKey: String(values[10] || ''),
+		approvedServer: String(values[11] || ''),
 	};
 }
 

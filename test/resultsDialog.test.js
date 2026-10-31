@@ -163,10 +163,14 @@ async function testMain(action, uiLanguage = 'en') {
 		'api/types': { ContentScriptType: {}, MenuItemLocation: {}, ToolbarButtonLocation: {} },
 		settings: {
 			registerSettings: async () => {},
-			getSettings: async () => ({ stripMarkdown: false, ignoredWords: '', autoCheck: false }),
+			getSettings: async () => ({
+				stripMarkdown: false, ignoredWords: '', autoCheck: true,
+				url: 'https://languagetool.example.org/v2/check',
+				approvedServer: 'https://languagetool.example.org/v2/check',
+			}),
 			ignoredWordsSet: () => new Set(),
 		},
-		languagetool: { checkText: async () => { checks++; return result; } },
+		languagetool: { ...loadSource('languagetool'), checkText: async () => { checks++; return result; } },
 	});
 	await plugin.onStart();
 	assert.strictEqual(registered.languagetoolCheckNote.label, i18n.t('LanguageTool: Check note'));

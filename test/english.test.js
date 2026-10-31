@@ -39,9 +39,9 @@ async function run() {
 		'api/types': { SettingItemType: {} },
 	});
 	await settings.registerSettings();
-	assert.strictEqual(Object.keys(registered).length, 12);
+	assert.strictEqual(Object.keys(registered).length, 13);
 	assert.strictEqual(registered['languagetool.uiLanguage'].value, 'auto');
-	assert.deepStrictEqual(Object.values(registered).slice(1).map((item) => item.label), [
+	assert.deepStrictEqual(Object.entries(registered).filter(([key, item]) => item.public && key !== 'languagetool.uiLanguage').map(([, item]) => item.label), [
 		'Server URL', 'Language', 'Mother tongue', 'Check automatically',
 		'Delay before automatic checking (ms)', 'Mask Markdown syntax', 'Disabled rules',
 		'Disabled categories', 'Personal dictionary', 'Username (optional)', 'API key (optional)',
@@ -49,7 +49,9 @@ async function run() {
 	assert.strictEqual(registered['languagetool.url'].value, 'https://api.languagetool.org/v2/check');
 	assert.strictEqual(registered['languagetool.language'].value, 'auto');
 	assert.strictEqual(registered['languagetool.motherTongue'].value, 'de-DE');
-	assert.strictEqual(registered['languagetool.autoCheck'].value, true);
+	assert.strictEqual(registered['languagetool.autoCheck'].value, false);
+	assert.strictEqual(registered['languagetool.approvedServer'].public, false);
+	assert.strictEqual(registered['languagetool.approvedServer'].value, '');
 
 	const common = loadSource('common');
 	const match = { offset: 0, length: 5, replacements: [] };

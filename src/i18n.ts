@@ -2,6 +2,26 @@
 // Add a catalog and a selector option to support another interface language.
 // Keep documentation, source comments and technical console diagnostics in English.
 export const de = {
+	'Only for self-hosted or authorized services, after server consent. Never used with the free public API. Automatically sends note text while typing.':
+		'Nur für eigene oder autorisierte Dienste nach Zustimmung zur Servernutzung. Niemals mit der kostenlosen öffentlichen API. Überträgt beim Tippen automatisch Notiztext.',
+	'The free public API only supports manually started checks.': 'Die kostenlose öffentliche API unterstützt nur manuell gestartete Prüfungen.',
+	'Use HTTPS for the public LanguageTool API.': 'Für die öffentliche LanguageTool-API bitte HTTPS verwenden.',
+	'The public API text limit is 19000 UTF-8 bytes.': 'Das Textlimit für die öffentliche API beträgt 19000 UTF-8-Bytes.',
+	'Local public API limit reached. Wait at least one minute before checking again.': 'Lokales Limit für die öffentliche API erreicht. Vor der nächsten Prüfung bitte mindestens eine Minute warten.',
+	'Allow checking': 'Prüfung erlauben',
+	'Text transmission and privacy': 'Textübertragung und Datenschutz',
+	'Checking sends note text and configured language options to this server:': 'Die Prüfung überträgt Notiztext und eingestellte Sprachoptionen an diesen Server:',
+	'Notes may contain sensitive information. Only approve a server you trust. Approval is remembered for this endpoint and can be revoked using the LanguageTool command.':
+		'Notizen können sensible Informationen enthalten. Stimmen Sie nur bei einem vertrauenswürdigen Server zu. Die Zustimmung wird für diesen Endpunkt gespeichert und kann über den LanguageTool-Befehl widerrufen werden.',
+	'The free public API is manual-only. Automatic checking and background refreshes are blocked.':
+		'Die kostenlose öffentliche API wird nur manuell verwendet. Automatische Prüfungen und Hintergrundaktualisierungen sind gesperrt.',
+	'If automatic checking is enabled, notes are sent while typing. Only enable this if the server permits automated requests. Ask its operator about data handling.':
+		'Bei aktivierter automatischer Prüfung werden Notizen beim Tippen übertragen. Aktivieren Sie dies nur, wenn der Server automatisierte Anfragen erlaubt. Fragen Sie den Betreiber nach der Datenverarbeitung.',
+	'Warning: this HTTP connection is not encrypted.': 'Warnung: Diese HTTP-Verbindung ist nicht verschlüsselt.',
+	'Privacy policy': 'Datenschutzerklärung',
+	'Only the first 19000 UTF-8 bytes were checked. The remaining text was not sent.':
+		'Nur die ersten 19000 UTF-8-Bytes wurden geprüft. Der restliche Text wurde nicht übertragen.',
+	'LanguageTool: Revoke server consent': 'LanguageTool: Zustimmung zur Servernutzung widerrufen',
 	'Server URL': 'Server-URL',
 	'Address of the /v2/check endpoint. Defaults to the free public LanguageTool API (api.languagetool.org). Alternatively, use a self-hosted server, e.g. https://languagetool.example.org/v2/check':
 		'Adresse des /v2/check-Endpunkts. Standard ist die kostenlose öffentliche LanguageTool-API (api.languagetool.org). Alternativ einen eigenen Server verwenden, z. B. https://languagetool.example.org/v2/check',
@@ -77,6 +97,26 @@ export const de = {
 
 export type TranslationKey = keyof typeof de;
 export const fr: Record<TranslationKey, string> = {
+	'Only for self-hosted or authorized services, after server consent. Never used with the free public API. Automatically sends note text while typing.':
+		'Uniquement pour les services auto-hébergés ou autorisés, après accord pour le serveur. Jamais avec l’API publique gratuite. Envoie automatiquement le texte pendant la saisie.',
+	'The free public API only supports manually started checks.': 'L’API publique gratuite accepte uniquement les vérifications lancées manuellement.',
+	'Use HTTPS for the public LanguageTool API.': 'Utilisez HTTPS pour l’API publique LanguageTool.',
+	'The public API text limit is 19000 UTF-8 bytes.': 'La limite de texte pour l’API publique est de 19000 octets UTF-8.',
+	'Local public API limit reached. Wait at least one minute before checking again.': 'Limite locale de l’API publique atteinte. Attendez au moins une minute avant de relancer la vérification.',
+	'Allow checking': 'Autoriser la vérification',
+	'Text transmission and privacy': 'Transmission du texte et confidentialité',
+	'Checking sends note text and configured language options to this server:': 'La vérification envoie le texte de la note et les options de langue configurées à ce serveur :',
+	'Notes may contain sensitive information. Only approve a server you trust. Approval is remembered for this endpoint and can be revoked using the LanguageTool command.':
+		'Les notes peuvent contenir des informations sensibles. N’autorisez qu’un serveur de confiance. L’accord est mémorisé pour ce point de terminaison et peut être révoqué via la commande LanguageTool.',
+	'The free public API is manual-only. Automatic checking and background refreshes are blocked.':
+		'L’API publique gratuite est utilisée uniquement manuellement. Les vérifications automatiques et les actualisations en arrière-plan sont bloquées.',
+	'If automatic checking is enabled, notes are sent while typing. Only enable this if the server permits automated requests. Ask its operator about data handling.':
+		'Si la vérification automatique est activée, les notes sont envoyées pendant la saisie. Activez-la uniquement si le serveur autorise les requêtes automatisées. Renseignez-vous auprès de son opérateur sur le traitement des données.',
+	'Warning: this HTTP connection is not encrypted.': 'Attention : cette connexion HTTP n’est pas chiffrée.',
+	'Privacy policy': 'Politique de confidentialité',
+	'Only the first 19000 UTF-8 bytes were checked. The remaining text was not sent.':
+		'Seuls les 19000 premiers octets UTF-8 ont été vérifiés. Le reste du texte n’a pas été envoyé.',
+	'LanguageTool: Revoke server consent': 'LanguageTool : révoquer l’accord pour le serveur',
 	'Server URL': 'URL du serveur',
 	'Address of the /v2/check endpoint. Defaults to the free public LanguageTool API (api.languagetool.org). Alternatively, use a self-hosted server, e.g. https://languagetool.example.org/v2/check':
 		'Adresse du point de terminaison /v2/check. Par défaut, utilise l’API publique gratuite de LanguageTool (api.languagetool.org). Vous pouvez aussi utiliser un serveur auto-hébergé, par exemple https://languagetool.example.org/v2/check',

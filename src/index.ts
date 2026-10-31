@@ -2,7 +2,8 @@ import joplin from 'api';
 import { t } from './i18n';
 import { ContentScriptType, MenuItemLocation, ToolbarButtonLocation, ViewHandle } from 'api/types';
 import { LT_MAX_TEXT, MistakePayload, hashString, mapMatches } from './common';
-import { LTCheckResponse, checkText } from './languagetool';
+import { LTCheckResponse, checkText, normalizeCheckUrl } from './languagetool';
+import { displayEndpoint, isPublicEndpoint, PUBLIC_TEXT_BYTES, truncateUtf8 } from './apiPolicy';
 import { stripMarkdownForCheck } from './markdown';
 import { buildResultsHtml, parseDialogChoices, DialogChoice, BatchReplacement, validateBatch } from './resultsDialog';
 import {
@@ -43,6 +44,33 @@ let lastCheck: CheckState | null = null;
 let autoCheckTimer: ReturnType<typeof setTimeout> | null = null;
 let checkSequence = 0;
 let resultsDialogOpen = false;
+let checkInProgress = false;
+
+async function approveServer(settings: PluginSettings): Promise<boolean> {
+	const endpoint = normalizeCheckUrl(settings.url);
+	if (settings.approvedServer === endpoint) return true;
+	const handle = await getDialog('languagetool-consent');
+	await joplin.views.dialogs.setFitToContent(handle, true);
+	await joplin.views.dialogs.setButtons(handle, [
+		{ id: 'ok', title: t('Allow checking') }, { id: 'cancel', title: t('Cancel') },
+	]);
+	const publicService = isPublicEndpoint(endpoint);
+	await joplin.views.dialogs.setHtml(handle, `<h3>${escapeHtml(t('Text transmission and privacy'))}</h3>
+		<p>${escapeHtml(t('Checking sends note text and configured language options to this server:'))}</p>
+		<p><code>${escapeHtml(displayEndpoint(endpoint))}</code></p>
+		<p>${escapeHtml(t('Notes may contain sensitive information. Only approve a server you trust. Approval is remembered for this endpoint and can be revoked using the LanguageTool command.'))}</p>
+		<p>${escapeHtml(publicService ? t('The free public API is manual-only. Automatic checking and background refreshes are blocked.')
+			: t('If automatic checking is enabled, notes are sent while typing. Only enable this if the server permits automated requests. Ask its operator about data handling.'))}</p>
+		${new URL(endpoint).protocol === 'http:' ? `<p>${escapeHtml(t('Warning: this HTTP connection is not encrypted.'))}</p>` : ''}
+		<p><a href="https://languagetool.org">LanguageTool</a>${publicService
+			? ` | <a href="https://languagetool.org/legal/privacy">${escapeHtml(t('Privacy policy'))}</a>` : ''}</p>`);
+	const result = await joplin.views.dialogs.open(handle);
+	if (result.id !== 'ok') return false;
+	// A server change while this dialog is open must never inherit approval.
+	if (normalizeCheckUrl((await getSettings()).url) !== endpoint) return false;
+	await joplin.settings.setValue('languagetool.approvedServer', endpoint);
+	return true;
+}
 
 function escapeHtml(s: string): string {
 	return s
@@ -140,13 +168,36 @@ async function getEditorText(): Promise<string | undefined> {
 }
 
 async function runCheck(showDialog: boolean): Promise<void> {
-	if (resultsDialogOpen) return;
+	if (resultsDialogOpen || checkInProgress) return;
+	checkInProgress = true;
+	try {
+		await performCheck(showDialog);
+	} catch (error) {
+		console.warn('LanguageTool: Check could not be started', error);
+		if (showDialog) await showMessageBox(`<p>${escapeHtml(error instanceof Error ? error.message : String(error))}</p>`);
+	} finally {
+		checkInProgress = false;
+	}
+}
+
+async function performCheck(showDialog: boolean): Promise<void> {
 	const settings = await getSettings();
+	const endpoint = normalizeCheckUrl(settings.url);
+	const publicService = isPublicEndpoint(endpoint);
+	// Enforce this for every caller, including old stored autoCheck=true,
+	// correction refreshes, ignored words/rules, and pending timers.
+	if (!showDialog && (publicService || !settings.autoCheck || settings.approvedServer !== endpoint)) return;
 	const note = await joplin.workspace.selectedNote();
 	if (!note) {
 		if (showDialog) await showMessageBox(`<p>${escapeHtml(t('No note selected.'))}</p>`);
 		return;
 	}
+	if (showDialog && !await approveServer(settings)) return;
+	// Do not send a different note or endpoint if either changed during consent.
+	const currentNote = await joplin.workspace.selectedNote();
+	const currentSettings = await getSettings();
+	if (!currentNote || currentNote.id !== note.id || normalizeCheckUrl(currentSettings.url) !== endpoint
+		|| currentSettings.approvedServer !== endpoint) return;
 
 	const seq = ++checkSequence;
 
@@ -158,14 +209,19 @@ async function runCheck(showDialog: boolean): Promise<void> {
 	if (settings.stripMarkdown) {
 		textToCheck = stripMarkdownForCheck(textToCheck);
 	}
-	const truncated = textToCheck.length > LT_MAX_TEXT;
-	if (truncated) {
-		textToCheck = textToCheck.slice(0, LT_MAX_TEXT);
-	}
+	const originalLength = textToCheck.length;
+	textToCheck = publicService ? truncateUtf8(textToCheck, PUBLIC_TEXT_BYTES) : textToCheck.slice(0, LT_MAX_TEXT);
+	const truncated = textToCheck.length < originalLength;
 
 	let result: LTCheckResponse;
 	try {
+		const latest = await getSettings();
+		const selected = await joplin.workspace.selectedNote();
+		if (seq !== checkSequence || !selected || selected.id !== note.id
+			|| normalizeCheckUrl(latest.url) !== endpoint || latest.approvedServer !== endpoint
+			|| (!showDialog && !latest.autoCheck)) return;
 		result = await checkText(textToCheck, {
+			trigger: showDialog ? 'manual' : 'background',
 			url: settings.url,
 			language: settings.language,
 			motherTongue: settings.motherTongue,
@@ -219,13 +275,15 @@ async function runCheck(showDialog: boolean): Promise<void> {
 
 	if (showDialog) {
 		const notes: string[] = [];
+		if (publicService) notes.push(t('The free public API is manual-only. Automatic checking and background refreshes are blocked.'));
 		if (!hasEditorIntegration) {
 			notes.push(
 				t('Highlights are only available in the Markdown editor (CodeMirror). Spell checking in the rich text editor is not supported.'),
 			);
 		}
 		if (truncated) {
-			notes.push(t('The note was only checked up to the text length limit (30000 characters).'));
+			notes.push(publicService ? t('Only the first 19000 UTF-8 bytes were checked. The remaining text was not sent.')
+				: t('The note was only checked up to the text length limit (30000 characters).'));
 		}
 		const dialogCheck = lastCheck;
 		const choices = await showResultsDialog(result, dialogCheck, notes.join(' '));
@@ -233,7 +291,9 @@ async function runCheck(showDialog: boolean): Promise<void> {
 			if (await applyDialogReplacements(dialogCheck, choices)) {
 				// Only refresh highlights after applying the batch.
 				// Do not reopen the dialog.
-				await runCheck(false);
+				// This runs within the current check lock; still enforce the
+				// background policy without reopening the results dialog.
+				await performCheck(false);
 			} else {
 				await showMessageBox(`<p>${escapeHtml(t('No changes were applied: the note or check result has changed, or the selection contains overlapping matches. Please check again and select only one correction for each overlapping text range.'))}</p>`);
 			}
@@ -250,7 +310,8 @@ function scheduleAutoCheck(): void {
 	if (autoCheckTimer) clearTimeout(autoCheckTimer);
 	void getSettings().then((settings) => {
 		if (resultsDialogOpen) return;
-		if (!settings.autoCheck) return;
+		if (!settings.autoCheck || isPublicEndpoint(settings.url)
+			|| settings.approvedServer !== normalizeCheckUrl(settings.url)) return;
 		if (autoCheckTimer) clearTimeout(autoCheckTimer);
 		// Check after the configured delay following a typing pause.
 		// During continuous typing, start a check at least every 5 seconds.
@@ -262,7 +323,7 @@ function scheduleAutoCheck(): void {
 			lastAutoCheckAt = Date.now();
 			void runCheck(false);
 		}, wait);
-	});
+	}).catch((error) => console.warn('LanguageTool: Could not schedule check', error));
 }
 
 joplin.plugins.register({
@@ -300,6 +361,16 @@ joplin.plugins.register({
 			iconName: 'fas fa-spell-check',
 			execute: async () => {
 				await runCheck(true);
+			},
+		});
+
+		await joplin.commands.register({
+			name: 'languagetoolRevokeConsent',
+			label: t('LanguageTool: Revoke server consent'),
+			execute: async () => {
+				await joplin.settings.setValue('languagetool.approvedServer', '');
+				if (autoCheckTimer) clearTimeout(autoCheckTimer);
+				await clearEditor();
 			},
 		});
 
@@ -342,6 +413,7 @@ joplin.plugins.register({
 				if (!word || typeof word !== 'string') return;
 				const current = String((await joplin.settings.value('languagetool.ignoredWords')) || '');
 				await joplin.settings.setValue('languagetool.ignoredWords', addWordToIgnored(current, word));
+				await clearEditor();
 				await runCheck(false);
 			},
 		});
@@ -353,9 +425,16 @@ joplin.plugins.register({
 				if (!ruleId || typeof ruleId !== 'string') return;
 				const current = String((await joplin.settings.value('languagetool.disabledRules')) || '');
 				await joplin.settings.setValue('languagetool.disabledRules', addRuleToDisabled(current, ruleId));
+				await clearEditor();
 				await runCheck(false);
 			},
 		});
+
+		await joplin.views.menuItems.create(
+			'languagetoolRevokeConsentMenuItem',
+			'languagetoolRevokeConsent',
+			MenuItemLocation.Tools,
+		);
 
 		await joplin.views.menuItems.create(
 			'languagetoolCheckMenuItem',

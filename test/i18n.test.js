@@ -103,7 +103,7 @@ async function testStartup(savedLanguage, locale = 'en_GB', expectedLanguage = '
 	assert.strictEqual(writes, 0, 'startup does not overwrite saved preferences');
 
 	// Check every settings label and description is in the selected catalog.
-	for (const item of Object.values(registered).slice(1)) {
+	for (const [, item] of Object.entries(registered).filter(([key, item]) => item.public && key !== 'languagetool.uiLanguage')) {
 		for (const field of ['label', 'description']) {
 			assert.ok(expectedLanguage !== 'en'
 				? Object.values(i18n.catalogs[expectedLanguage]).includes(item[field])

@@ -66,6 +66,7 @@ export function buildResultsHtml(
 	<div class="lt-dialog" lang="${getUiLanguage()}">
 	<header class="lt-dialog-header">
 	<h3>${escapeHtml(t('LanguageTool check'))}</h3>
+	<p><a href="https://languagetool.org">LanguageTool</a></p>
 	<p>${escapeHtml(mistakes.length ? t('{count} match(es), detected language: {language}', {
 		count: mistakes.length, language,
 	}) : t('No errors found.'))}</p>
