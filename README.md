@@ -43,7 +43,7 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 1. Notiz öffnen und mit Markdown-Editor bearbeiten.
 2. **Strg+Umschalt+P** → „LanguageTool: Notiz prüfen" (oder Werkzeuge-Menü / Symbolleistenschaltfläche).
 3. Fehler werden farbig unterstrichen. **Rechtsklick** auf eine Fundstelle zeigt die Meldung und die Korrekturvorschläge an.
-4. Vorschläge werden in dieser Version noch **nicht direkt übernommen** – sie werden im Rechtsklickmenü angezeigt und manuell in den Text übertragen (siehe „Technische Hinweise").
+4. Einen **Korrekturvorschlag auswählen** – er wird direkt in den Notiztext übernommen (seit v1.1.0).
 5. Über das Rechtsklickmenü lassen sich Wörter ins eigene Wörterbuch aufnehmen oder einzelne Regeln deaktivieren; die Notiz wird danach automatisch neu geprüft.
 
 ## Einstellungen
@@ -64,7 +64,7 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 
 - Die Netzwerkkommunikation läuft ausschließlich zwischen Joplin und dem konfigurierten Server. Es gibt **keinen Fallback** auf api.languagetool.org.
 - Prüfergebnisse sind an den Text gebunden, für den sie erzeugt wurden: Ändert sich der Notiztext oder wird die Notiz gewechselt, werden veraltete Ergebnisse verworfen und nicht mehr angewendet.
-- **Korrekturen per Rechtsklick sind in v1.0.0 deaktiviert.** Vorschläge werden angezeigt, aber noch nicht automatisch in den Notiztext übernommen; das Plugin schreibt in dieser Version den Notiztext nicht. Das direkte Übernehmen (mit Ergebnis-Token-Absicherung gegen veraltete Korrekturen) ist für die nächste Version geplant.
+- **Korrekturen sind ergebnisgebunden abgesichert (seit v1.1.0):** Jedes Prüfergebnis erhält ein eindeutiges Ergebnis-Token, das bei jeder Textänderung, nach dem Verwerfen der Hervorhebungen und durch jedes neuere Prüfergebnis entwertet wird. Eine Korrektur wird nur angewendet, wenn Notiz, Text und Token noch zum Prüfergebnis passen – veraltete Korrekturen werden abgelehnt. Zusätzlich prüft das Plugin synchron, ob der zu ersetzende Text unverändert ist, und korrigiert nur innerhalb der Dokumentgrenzen.
 - Notizen werden nur bis 30000 Zeichen geprüft (Standard-Limit von LanguageTool, serverseitig über `maxCheckLength` konfigurierbar).
 - Rechtsklick-Korrekturvorschläge und der Ergebnisdialog sind Desktop-Funktionen. Auf Joplin Mobile stehen sie derzeit nicht zur Verfügung.
 - Bekanntes Limitat: Wörter direkt nach Markdown-Listenpunkten oder Checkboxen können von LanguageTool fälschlich als Groß-/Kleinschreibungsfehler (Regel DE_CASE) gemeldet werden, weil Listenpunkte bei der Prüfung ausgeblendet werden. Über das Kontextmenü lässt sich die Regel zwar deaktivieren – das wirkt dann aber global für alle Notizen, was nicht empfehlenswert ist.

@@ -81,8 +81,8 @@ async function run() {
 	assert.strictEqual(commands.ltShowMistakes({ mistakes: [MISTAKE(12, 'Tesdt')], hash: hash + 1, noteId: 'n1' }), false, 'falscher Hash wird abgelehnt');
 	assert.strictEqual(decorations().count, 0, 'keine Marks nach falschem Hash');
 
-	// 3. v1.0.0 ist bewusst schreibgeschützt: Es gibt keinen Ersatz-Befehl.
-	assert.strictEqual(typeof commands.ltReplaceRange, 'undefined', 'kein Schreibbefehl ltReplaceRange registriert');
+	// 3. Korrektur ohne gültiges Prüfergebnis -> abgelehnt
+	assert.strictEqual(commands.ltReplaceRange(12, 17, 'Test', 'Tesdt', 1), false, 'Korrektur ohne gültiges Ergebnis abgelehnt');
 
 	// 4. ltShowMistakes mit richtigem Hash -> akzeptiert, Marks gesetzt.
 	//    Rückgabe ist ein eindeutiges Ergebnis-Token (Zahl).
@@ -93,14 +93,23 @@ async function run() {
 	assert.deepStrictEqual(d.ranges[0], [12, 17, 'lt-spelling'], 'Mark 1 korrekt');
 	assert.deepStrictEqual(d.ranges[1], [22, 29, 'lt-grammar'], 'Mark 2 korrekt');
 
-	// 5./6./7. Da kein Schreibbefehl existiert, bleibt das Dokument unverändert.
+	// 5. Korrektur mit falschem erwartetem Text -> abgelehnt, unverändert
 	const before = commands.ltGetText();
-	assert.strictEqual(typeof commands.ltReplaceRange, 'undefined', 'auch nach gültigem Prüfergebnis kein Schreibbefehl');
-	assert.strictEqual(commands.ltGetText(), before, 'Dokument bleibt unverändert');
+	assert.strictEqual(commands.ltReplaceRange(12, 17, 'Test', 'FALSCHE-ERWARTUNG', token1), false, 'Korrektur mit falschem erwartetem Text abgelehnt');
+	assert.strictEqual(commands.ltGetText(), before, 'Dokument unverändert nach abgelehnter Korrektur');
 
-	// 8. Textänderungen verwerfen das Prüfergebnis: Marks und Token werden
-	//    entwertet. Die Änderung erfolgt am Dokumentende, damit das zweite
-	//    'Tesdt' nicht verschoben wird.
+	// 6. Korrektur mit falschem Ergebnis-Token -> abgelehnt
+	assert.strictEqual(commands.ltReplaceRange(12, 17, 'Test', 'Tesdt', token1 + 999), false, 'Korrektur mit falschem Ergebnis-Token abgelehnt');
+	assert.strictEqual(commands.ltGetText(), before, 'Dokument unverändert');
+
+	// 7. Korrektur mit korrektem Token und erwartetem Text -> angewendet
+	assert.strictEqual(commands.ltReplaceRange(12, 17, 'Test', 'Tesdt', token1), true, 'Korrektur mit gültigem Token angewendet');
+	assert.ok(view.state.doc.toString().includes('ein Test mit'), 'Ersetzung im Dokument vorhanden');
+
+	// 8. Nach jeder Textänderung (docChanged) wird das Ergebnis-Token entwertet:
+	//    eine Korrektur wird abgelehnt, selbst wenn das Fehlerwort an derselben
+	//    Position unverändert weiterexistiert. Die Änderung erfolgt am
+	//    Dokumentende, damit das zweite 'Tesdt' nicht verschoben wird.
 	const text2 = 'Das ist ein Tesdt mit Fehlern und noch einem Tesdt hier.';
 	const fx2 = makeFixture(text2);
 	const hash2 = djb2(text2);
@@ -108,13 +117,15 @@ async function run() {
 	const token2 = fx2.commands.ltShowMistakes({ mistakes: [MISTAKE(offset2, 'Tesdt')], hash: hash2, noteId: 'n2' });
 	assert.ok(typeof token2 === 'number', 'Token für fx2 gesetzt');
 	assert.strictEqual(fx2.commands.ltGetText().slice(offset2, offset2 + 5), 'Tesdt', 'Fehlerwort liegt unverändert an der Zielposition');
-	assert.strictEqual(fx2.decorations().count, 1, 'Mark gesetzt');
 	// Änderung am Dokumentende: 'Tesdt' an offset2 bleibt unverändert bestehen
 	fx2.view.dispatch({ changes: { from: text2.length, to: text2.length, insert: ' Und Ende.' } });
 	assert.strictEqual(fx2.commands.ltGetText().slice(offset2, offset2 + 5), 'Tesdt', 'Fehlerwort unverändert nach Dokumentänderung');
-	assert.strictEqual(fx2.decorations().count, 0, 'Marks nach Textänderung verworfen');
+	assert.strictEqual(
+		fx2.commands.ltReplaceRange(offset2, offset2 + 5, 'Test', 'Tesdt', token2),
+		false,
+		'Korrektur nach Textänderung abgelehnt (Token entwertet)',
+	);
 	assert.ok(fx2.commands.ltGetText().endsWith('Und Ende.'), 'nur die manuelle Änderung im Dokument');
-	assert.strictEqual(typeof fx2.commands.ltReplaceRange, 'undefined', 'kein Schreibbefehl nach Textänderung');
 
 	// 8b. Tokens sind eindeutig und werden bei jedem Prüfergebnis neu vergeben.
 	const fx2b = makeFixture(text);
@@ -124,21 +135,26 @@ async function run() {
 	const tokenB = fx2b.commands.ltShowMistakes({ mistakes: [MISTAKE(12, 'Tesdt')], hash: hash2b, noteId: 'n2b' });
 	assert.ok(typeof tokenA === 'number' && typeof tokenB === 'number', 'beide Tokens sind Zahlen');
 	assert.notStrictEqual(tokenA, tokenB, 'Tokens für denselben Text unterscheiden sich');
-	assert.strictEqual(fx2b.decorations().count, 1, 'Marks nach erneutem Anzeigen gesetzt');
+	assert.strictEqual(fx2b.commands.ltReplaceRange(12, 17, 'Test', 'Tesdt', tokenA), false, 'altes Token nach Verwerfen abgelehnt');
+	assert.strictEqual(fx2b.commands.ltGetText(), text, 'Dokument nach altem Token unverändert');
+	assert.strictEqual(fx2b.commands.ltReplaceRange(12, 17, 'Test', 'Tesdt', tokenB), true, 'aktuelles Token wird akzeptiert');
+	assert.ok(fx2b.commands.ltGetText().includes('ein Test mit'), 'Ersetzung mit aktuellem Token angewendet');
 
-	// 9. Schreibbefehl bleibt deaktiviert (Dokumentgrenzen irrelevant)
+	// 9. Gescheiterte Positionen werden nicht an Dokumentgrenzen begrenzt
 	const fx3 = makeFixture('Kurzer Text.');
-	fx3.commands.ltShowMistakes({ mistakes: [MISTAKE(0, 'Kurzer')], hash: djb2('Kurzer Text.'), noteId: 'n3' });
-	assert.strictEqual(typeof fx3.commands.ltReplaceRange, 'undefined', 'kein Schreibbefehl in fx3');
-	assert.strictEqual(fx3.commands.ltGetText(), 'Kurzer Text.', 'Dokument unverändert');
+	const token3 = fx3.commands.ltShowMistakes({ mistakes: [MISTAKE(0, 'Kurzer')], hash: djb2('Kurzer Text.'), noteId: 'n3' });
+	assert.ok(typeof token3 === 'number', 'Token für fx3 gesetzt');
+	assert.strictEqual(fx3.commands.ltReplaceRange(50, 60, 'X', 'Kurzer', token3), false, 'Bereich jenseits der Dokumentlänge abgelehnt');
+	assert.strictEqual(fx3.commands.ltReplaceRange(-5, 3, 'X', 'Kur', token3), false, 'negativer Bereich abgelehnt');
 
-	// 10. ltClearMistakes verwirft das Ergebnis vollständig
+	// 10. ltClearMistakes entwertet das Ergebnis: alte Korrektur wird abgelehnt
 	const fx4 = makeFixture(text);
 	const h4 = djb2(text);
-	fx4.commands.ltShowMistakes({ mistakes: [MISTAKE(12, 'Tesdt')], hash: h4, noteId: 'n4' });
+	const token4 = fx4.commands.ltShowMistakes({ mistakes: [MISTAKE(12, 'Tesdt')], hash: h4, noteId: 'n4' });
 	fx4.commands.ltClearMistakes();
-	assert.strictEqual(fx4.decorations().count, 0, 'Marks nach Verwerfen entfernt');
+	assert.strictEqual(fx4.commands.ltReplaceRange(12, 17, 'Test', 'Tesdt', token4), false, 'Korrektur aus verworfenem Prüfergebnis abgelehnt');
 	assert.strictEqual(fx4.commands.ltGetText(), text, 'Dokument unverändert');
+	assert.strictEqual(fx4.decorations().count, 0, 'Marks nach Verwerfen entfernt');
 
 	// 11. Rechtsklick-Kontext: null wird beim Ereignisstart verworfen
 	const fx5 = makeFixture(text);
