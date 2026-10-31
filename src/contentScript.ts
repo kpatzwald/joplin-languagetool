@@ -154,6 +154,34 @@ export default (_context: ContentScriptContext) => {
 				return true;
 			});
 
+			// Einen Bereich des Texts ersetzen. Gebunden an das aktuelle
+			// Prüfergebnis: Das Ergebnis-Token muss noch gültig sein (ungültig
+			// nach jeder Textänderung, nach ltClearMistakes oder einem neueren
+			// Prüfergebnis) und der zu ersetzende Text muss unverändert sein.
+			codeMirrorWrapper.registerCommand(
+				'ltReplaceRange',
+				(from: number, to: number, text: string, expected: string, resultToken: number) => {
+					const activeToken = view.state.field(resultTokenField, false);
+					if (typeof resultToken !== 'number' || activeToken === null || activeToken !== resultToken) {
+						console.info('LanguageTool: Korrektur abgelehnt – kein gültiges Prüfergebnis.');
+						return false;
+					}
+					if (typeof from !== 'number' || typeof to !== 'number' || typeof text !== 'string' || typeof expected !== 'string') {
+						return false;
+					}
+					if (from < 0 || to < from || to > view.state.doc.length) {
+						console.info('LanguageTool: Korrektur abgelehnt – Bereich außerhalb des Dokuments.');
+						return false;
+					}
+					if (view.state.doc.sliceString(from, to) !== expected) {
+						console.info('LanguageTool: Korrektur abgelehnt – Text hat sich geändert.');
+						return false;
+					}
+					view.dispatch({ changes: { from, to, insert: text } });
+					return true;
+				},
+			);
+
 			view.dom.addEventListener(
 				'contextmenu',
 				(event: MouseEvent) => {

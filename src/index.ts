@@ -273,6 +273,30 @@ joplin.plugins.register({
 		});
 
 		await joplin.commands.register({
+			name: 'languagetoolReplace',
+			label: 'LanguageTool: Vorschlag übernehmen',
+			// Die Korrektur ist an das Prüfergebnis gebunden: Die Notiz muss
+			// noch ausgewählt sein und das Ergebnis-Token muss gültig sein.
+			// Das Content-Script prüft zusätzlich synchron Token und
+			// erwarteten Originaltext.
+			execute: async (from: number, to: number, value: string, expected: string, resultToken: number) => {
+				const check = lastCheck;
+				if (!check || check.token === null) return;
+				if (typeof resultToken !== 'number' || resultToken !== check.token) return;
+				const note = await joplin.workspace.selectedNote();
+				if (!note || note.id !== check.noteId) return;
+				try {
+					await joplin.commands.execute('editor.execCommand', {
+						name: 'ltReplaceRange',
+						args: [from, to, value, expected, resultToken],
+					});
+				} catch (error) {
+					console.warn('LanguageTool: Korrektur fehlgeschlagen', error);
+				}
+			},
+		});
+
+		await joplin.commands.register({
 			name: 'languagetoolIgnoreWord',
 			label: 'LanguageTool: Wort ignorieren',
 			execute: async (word: string) => {
@@ -336,8 +360,14 @@ joplin.plugins.register({
 				for (const suggestion of mistake.replacements.slice(0, 6)) {
 					items.push({
 						label: suggestion === '' ? 'Löschen' : `„${suggestion}"`,
-					// v1.0.0: Vorschläge werden angezeigt, aber noch nicht
-					// direkt übernommen.
+						commandName: 'languagetoolReplace',
+						commandArgs: [
+							mistake.offset,
+							mistake.offset + mistake.length,
+							suggestion,
+							mistake.word,
+							check.token,
+						],
 					});
 				}
 
