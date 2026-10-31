@@ -1,8 +1,14 @@
 # LanguageTool-Plugin für Joplin
 
+Autor: Kay Patzwald. Projektname: `joplin-languagetool`, npm-Paketname: `joplin-plugin-languagetool`.
+
+GitHub-Zieladresse: https://github.com/kpatzwald/joplin-languagetool. Die Metadaten sind auf diese korrigierte Schreibweise vorbereitet; die Umbenennung des bisher `joplin-langugetool` genannten GitHub-Repositorys und der erste Upload erfolgen separat.
+
 Rechtschreib- und Grammatikprüfung für Joplin-Notizen über LanguageTool. Voreingestellt ist die **kostenlose öffentliche API** (https://api.languagetool.org); alternativ kann in den Einstellungen ein **eigener Server** hinterlegt werden (z. B. https://languagetool.example.org) – dann bleiben die Prüftexte im eigenen Netz.
 
-Basiert in Teilen auf [tito21/joplin-langugetool](https://github.com/tito21/joplin-langugetool) (MIT), wurde aber für den aktuellen CodeMirror-6-Editor von Joplin neu entwickelt.
+Für den CodeMirror-6-Editor von Joplin neu entwickelt, inspiriert von [tito21/joplin-langugetool](https://github.com/tito21/joplin-langugetool) (MIT). Dessen abweichende Schreibweise ist Bestandteil der tatsächlichen Fremdprojekt-Adresse und bleibt im Herkunftsverweis erhalten.
+
+Die bestehende Plugin-ID `de.osz2.languagetool` bleibt zur Update-Kompatibilität unverändert. Sie ist kein Server-Endpunkt; eigene Serveradressen werden nicht mitgeliefert.
 
 ## Funktionen
 
@@ -78,7 +84,7 @@ Seit v1.3.1 hat die Fundstellenliste einen eigenen vertikalen Scrollbereich. Der
 
 ## Status
 
-Die Version 1.3.1 wurde mit automatisierten Editor-Tests, DOM-Tests der nativen Formular-Auswahl und Ablauf-Tests des Hauptskripts gegen eine gemockte Joplin-API geprüft. Zusätzlich werden Struktur und CSS des Scrollbereichs mit 100 Fundstellen geprüft; diese DOM-Tests messen keine tatsächlichen Bildschirmabmessungen. Die Tests benötigen keinen erreichbaren LanguageTool-Server. Sie ersetzen keinen vollständigen Laufzeittest der neuen Dialogversion in der Joplin-GUI; dieser steht noch aus.
+Die Version 1.3.2 wurde mit automatisierten Editor-Tests, DOM-Tests der nativen Formular-Auswahl und Ablauf-Tests des Hauptskripts gegen eine gemockte Joplin-API geprüft. Zusätzlich werden Struktur und CSS des Scrollbereichs mit 100 Fundstellen geprüft; diese DOM-Tests messen keine tatsächlichen Bildschirmabmessungen. Die Tests benötigen keinen erreichbaren LanguageTool-Server. Sie ersetzen keinen vollständigen Laufzeittest der neuen Dialogversion in der Joplin-GUI; dieser steht noch aus.
 
 Zum Nachprüfen: `npm ci`, `npm run dist`, `npm test`. Die DOM-Tests prüfen die tatsächlichen Formularwerte nach dem Anklicken mehrerer Vorschläge; die Editor-Tests prüfen die gemeinsame Anwendung sowie die vollständige Ablehnung ungültiger oder überlappender Änderungen.
 
