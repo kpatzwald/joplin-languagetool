@@ -1,5 +1,6 @@
 // Shared types and helpers used by the main script and editor content script.
 // Each bundle receives its own copy.
+import { t } from './i18n';
 
 // Maximum text length sent to LanguageTool. Matches the LanguageTool default
 // (configurable on the server using maxCheckLength).
@@ -83,7 +84,7 @@ export function mistakeToPayload(
 		offset: match.offset,
 		length: match.length,
 		word,
-		message: String(match.message || match.rule?.description || 'Unknown error'),
+		message: String(match.message || match.rule?.description || t('Unknown error')),
 		replacements,
 		issueType: String(match.rule?.issueType || match.type?.typeName || 'other'),
 		ruleId: String(match.rule?.id || ''),

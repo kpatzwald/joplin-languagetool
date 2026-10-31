@@ -78,7 +78,9 @@ const longText = 'A'.repeat(500) + 'Tesdt' + 'B'.repeat(500);
 const context = ui.contextHtml(longText, { ...mistakes[0], offset: 500 });
 assert.strictEqual((new JSDOM(context)).window.document.body.textContent.length, 367);
 
-async function testMain(action) {
+async function testMain(action, uiLanguage = 'en') {
+	const i18n = loadSource('i18n');
+	i18n.setUiLanguage(uiLanguage);
 	let plugin;
 	let currentText = text;
 	let html = '';
@@ -89,6 +91,7 @@ async function testMain(action) {
 	const messages = [];
 	const note = { id: 'n1', body: text };
 	let contentMessage;
+	let contextMenu;
 	const fake = {
 		plugins: { register: (value) => { plugin = value; } },
 		contentScripts: {
@@ -98,12 +101,15 @@ async function testMain(action) {
 		workspace: {
 			selectedNote: async () => note,
 			onNoteSelectionChange: async () => {}, onNoteChange: async () => {},
-			filterEditorContextMenu: async () => {},
+			filterEditorContextMenu: async (callback) => { contextMenu = callback; },
 		},
 		commands: {
 			register: async (command) => { registered[command.name] = command; },
 			execute: async (_command, args) => {
 				if (args.name === 'ltGetText') return currentText;
+				if (args.name === 'ltGetClickContext') return {
+					pos: text.indexOf('Tesdt'), hash: loadSource('common').hashString(text),
+				};
 				if (args.name === 'ltShowMistakes') return 17;
 				if (args.name === 'ltReplaceBatch') {
 					batchCalls++;
@@ -127,7 +133,7 @@ async function testMain(action) {
 				},
 				setButtons: async (handle, buttons) => {
 					if (handle === 'languagetool-results') assert.deepStrictEqual(
-						buttons.map((button) => button.title), ['Apply', 'Cancel'],
+						buttons.map((button) => button.title), [i18n.t('Apply'), i18n.t('Cancel')],
 					);
 				},
 				open: async (handle) => {
@@ -152,6 +158,7 @@ async function testMain(action) {
 		})),
 	};
 	loadSource('index', {
+		i18n,
 		api: { default: fake },
 		'api/types': { ContentScriptType: {}, MenuItemLocation: {}, ToolbarButtonLocation: {} },
 		settings: {
@@ -162,6 +169,7 @@ async function testMain(action) {
 		languagetool: { checkText: async () => { checks++; return result; } },
 	});
 	await plugin.onStart();
+	assert.strictEqual(registered.languagetoolCheckNote.label, i18n.t('LanguageTool: Check note'));
 	await registered.languagetoolCheckNote.execute();
 	assert.strictEqual(resultsOpened, 1, 'dialog not reopened after batch application');
 	if (action === 'apply') {
@@ -171,14 +179,21 @@ async function testMain(action) {
 	} else if (action === 'cancel') {
 		assert.strictEqual(batchCalls, 0);
 		assert.strictEqual(currentText, text);
+		const menu = await contextMenu({ items: [] });
+		assert.ok(menu.items.some((item) => item.label === i18n.t('Always ignore "{word}"', { word: 'Tesdt' })));
+		assert.ok(menu.items.some((item) => item.label === i18n.t('Disable rule "{rule}"', { rule: 'TEST' })));
 	} else {
 		assert.strictEqual(checks, 1);
-		assert.ok(messages.some((message) => message.includes('No changes were applied')));
+		assert.ok(messages.some((message) => message.includes(
+			uiLanguage === 'de' ? 'Es wurde nichts übernommen' : 'No changes were applied',
+		)));
 	}
 	if (action === 'note') assert.strictEqual(batchCalls, 0, 'no writes to a different note');
 }
 
 (async () => {
-	for (const action of ['apply', 'cancel', 'stale', 'note']) await testMain(action);
-	console.log('Dialog DOM, batch selection, main-script flow, cancellation and stale selection tests passed.');
+	for (const language of ['en', 'de']) {
+		for (const action of ['apply', 'cancel', 'stale', 'note']) await testMain(action, language);
+	}
+	console.log('English and German dialog DOM, batch selection, main-script flow, cancellation and stale selection tests passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

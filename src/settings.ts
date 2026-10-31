@@ -1,5 +1,6 @@
 import joplin from 'api';
 import { SettingItemType } from 'api/types';
+import { setUiLanguage, translateSetting } from './i18n';
 
 export interface PluginSettings {
 	url: string;
@@ -22,6 +23,22 @@ export async function registerSettings(): Promise<void> {
 	});
 
 	await joplin.settings.registerSettings({
+		// Bootstrap this setting before reading its persisted value. Keep its
+		// label bilingual so it is always recognizable in either language.
+		'languagetool.uiLanguage': {
+			value: 'en',
+			type: SettingItemType.String,
+			section: 'languagetool',
+			public: true,
+			isEnum: true,
+			options: { en: 'English', de: 'Deutsch' },
+			label: 'Interface language / Oberflächensprache',
+			description: 'Restart Joplin after changing this setting. / Joplin nach dem Ändern neu starten.',
+		},
+	});
+	setUiLanguage(await joplin.settings.value('languagetool.uiLanguage'));
+
+	const items = {
 		'languagetool.url': {
 			value: 'https://api.languagetool.org/v2/check',
 			type: SettingItemType.String,
@@ -110,7 +127,12 @@ export async function registerSettings(): Promise<void> {
 			label: 'API key (optional)',
 			description: 'Only required if the server needs an API key.',
 		},
-	});
+	};
+	for (const item of Object.values(items)) {
+		item.label = translateSetting(item.label);
+		item.description = translateSetting(item.description);
+	}
+	await joplin.settings.registerSettings(items);
 }
 
 export async function getSettings(): Promise<PluginSettings> {
