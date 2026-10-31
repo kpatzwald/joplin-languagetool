@@ -3,6 +3,7 @@ import { ContentScriptType, MenuItemLocation, ToolbarButtonLocation, ViewHandle 
 import { LT_MAX_TEXT, MistakePayload, hashString, mapMatches } from './common';
 import { LTCheckResponse, checkText } from './languagetool';
 import { stripMarkdownForCheck } from './markdown';
+import { buildResultsHtml, parseDialogChoices, DialogChoice, BatchReplacement, validateBatch } from './resultsDialog';
 import {
 	PluginSettings,
 	addRuleToDisabled,
@@ -34,11 +35,13 @@ interface CheckState {
 	// Eindeutiges Ergebnis-Token des Editors, wenn die Hervorhebungen
 	// tatsächlich übernommen wurden, sonst null.
 	token: number | null;
+	text: string;
 }
 
 let lastCheck: CheckState | null = null;
 let autoCheckTimer: ReturnType<typeof setTimeout> | null = null;
 let checkSequence = 0;
+let resultsDialogOpen = false;
 
 function escapeHtml(s: string): string {
 	return s
@@ -71,77 +74,22 @@ async function clearEditor(): Promise<void> {
 	}
 }
 
-function buildResultsHtml(
-	result: LTCheckResponse,
-	mistakes: MistakePayload[],
-	ignoredWordsNote: string,
-): string {
-	const language = result.language?.detectedLanguage?.name || result.language?.name || 'unbekannt';
-	const items = mistakes
-		.map((mistake, mistakeIndex) => {
-			// Vorschlag als Button im Formular: Ein Klick übernimmt ihn in den
-			// Text (das Formular schließt den Dialog, das Hauptskript wendet
-			// die Korrektur token-gesichert an und prüft anschließend neu).
-			const suggestionButtons = mistake.replacements
-				.map((r, suggestionIndex) => {
-					const label = r === '' ? 'Löschen' : r;
-					return `<button type="button" class="lt-sugg-btn" data-choice="${mistakeIndex}:${suggestionIndex}">${escapeHtml(label)}</button>`;
-				})
-				.join(' ');
-			const suggestions = suggestionButtons
-				? `<div class="lt-sugg">Vorschläge: ${suggestionButtons}</div>`
-				: '';
-			return `
-				<li>
-					<div class="lt-msg">${escapeHtml(mistake.message)}</div>
-					<div class="lt-word">…${escapeHtml(mistake.word)}…</div>
-					${suggestions}
-					<div class="lt-rule">Regel: ${escapeHtml(mistake.ruleId)}${mistake.category ? ` (${escapeHtml(mistake.category)})` : ''}</div>
-				</li>`;
-		})
-		.join('\n');
-
-	return `
-		<style>
-			body { font-family: sans-serif; font-size: 14px; }
-			ul { padding-left: 18px; }
-			li { margin-bottom: 10px; }
-			.lt-msg { font-weight: bold; }
-			.lt-word { color: #b00020; margin: 2px 0; }
-			.lt-sugg { color: #1a7f37; margin: 3px 0; }
-			.lt-rule { color: #888; font-size: 12px; }
-			.lt-note { color: #888; margin-top: 12px; font-size: 12px; }
-			.lt-sugg-btn { background: #f0f0f0; border: 1px solid #bbb; border-radius: 4px; padding: 2px 8px; margin: 1px 3px 1px 0; cursor: pointer; font-size: 13px; }
-			.lt-sugg-btn:hover { background: #e0e0e0; }
-		</style>
-		<h3>LanguageTool-Prüfung</h3>
-		<p>${mistakes.length === 0 ? 'Keine Fehler gefunden.' : `${mistakes.length} Fundstelle(n) – erkannte Sprache: ${escapeHtml(language)}`}</p>
-		<form name="ltForm">
-			<input type="hidden" name="ltReplaceChoice" value="">
-			${mistakes.length ? `<ul>${items}</ul>` : ''}
-		</form>
-		${ignoredWordsNote ? `<p class="lt-note">${escapeHtml(ignoredWordsNote)}</p>` : ''}
-	`;
-}
-
-interface DialogReplaceRequest {
-	mistakeIndex: number;
-	suggestionIndex: number;
-}
-
-// Wendet eine aus dem Dialog gewählte Korrektur an (gleiches token-gesichertes
-// Verfahren wie beim Rechtsklick im Editor).
-async function applyDialogReplacement(request: DialogReplaceRequest): Promise<boolean> {
-	const check = lastCheck;
-	if (!check || check.token === null) return false;
-	const mistake = check.mistakes[request.mistakeIndex];
-	if (!mistake) return false;
-	const suggestion = mistake.replacements[request.suggestionIndex];
-	if (typeof suggestion !== 'string') return false;
+async function applyDialogReplacements(check: CheckState, choices: DialogChoice[]): Promise<boolean> {
+	if (lastCheck !== check || check.token === null) return false;
+	const edits: BatchReplacement[] = choices.map(({ mistakeIndex, suggestionIndex }) => {
+		const mistake = check.mistakes[mistakeIndex];
+		return {
+			from: mistake.offset, to: mistake.offset + mistake.length,
+			text: mistake.replacements[suggestionIndex], expected: mistake.word,
+		};
+	});
+	if (!validateBatch(check.text, edits)) return false;
+	const note = await joplin.workspace.selectedNote();
+	if (!note || note.id !== check.noteId || lastCheck !== check) return false;
 	try {
 		const accepted = await joplin.commands.execute('editor.execCommand', {
-			name: 'ltReplaceRange',
-			args: [mistake.offset, mistake.offset + mistake.length, suggestion, mistake.word, check.token],
+			name: 'ltReplaceBatch',
+			args: [edits, check.token, check.text],
 		});
 		return accepted === true;
 	} catch (error) {
@@ -152,30 +100,31 @@ async function applyDialogReplacement(request: DialogReplaceRequest): Promise<bo
 
 async function showResultsDialog(
 	result: LTCheckResponse,
-	mistakes: MistakePayload[],
+	check: CheckState,
 	notes: string,
-): Promise<DialogReplaceRequest | null> {
+): Promise<DialogChoice[] | null> {
+	resultsDialogOpen = true;
+	// Keine automatischen Prüfergebnisse dürfen die offene Auswahl ersetzen.
+	++checkSequence;
+	if (autoCheckTimer) clearTimeout(autoCheckTimer);
 	try {
 		const handle = await getDialog(RESULTS_DIALOG_ID);
-		await joplin.views.dialogs.setFitToContent(handle, true);
-		await joplin.views.dialogs.setButtons(handle, [{ id: 'ok', title: 'Schließen' }]);
-		await joplin.views.dialogs.setHtml(handle, buildResultsHtml(result, mistakes, notes));
-		await joplin.views.dialogs.addScript(handle, './dialog.js');
+		await joplin.views.dialogs.setFitToContent(handle, false);
+		await joplin.views.dialogs.setButtons(handle, [
+			{ id: 'ok', title: 'Übernehmen' }, { id: 'cancel', title: 'Abbrechen' },
+		]);
+		const language = result.language?.detectedLanguage?.name || result.language?.name || 'unbekannt';
+		await joplin.views.dialogs.setHtml(handle, buildResultsHtml(
+			language, check.mistakes, check.text, notes, check.token !== null,
+		));
 		const dialogResult = await joplin.views.dialogs.open(handle);
-
-		// Gewählter Vorschlag? Das versteckte Eingabefeld liefert
-		// "FehlerIndex:VorschlagIndex" (gesetzt per Klick aus dialog.js).
-		const raw = (dialogResult as any)?.formData?.ltForm?.ltReplaceChoice;
-		if (typeof raw !== 'string') return null;
-		const [mistakeIndex, suggestionIndex] = raw.split(':').map(Number);
-		if (!Number.isInteger(mistakeIndex) || !Number.isInteger(suggestionIndex)) return null;
-		if (mistakeIndex < 0 || mistakeIndex >= mistakes.length) return null;
-		const mistake = mistakes[mistakeIndex];
-		if (suggestionIndex < 0 || suggestionIndex >= mistake.replacements.length) return null;
-		return { mistakeIndex, suggestionIndex };
+		if (dialogResult.id !== 'ok') return null;
+		return parseDialogChoices(dialogResult.formData?.ltForm, check.mistakes);
 	} catch (error) {
 		console.warn('LanguageTool: Ergebnisdialog konnte nicht geöffnet werden', error);
 		return null;
+	} finally {
+		resultsDialogOpen = false;
 	}
 }
 
@@ -190,6 +139,7 @@ async function getEditorText(): Promise<string | undefined> {
 }
 
 async function runCheck(showDialog: boolean): Promise<void> {
+	if (resultsDialogOpen) return;
 	const settings = await getSettings();
 	const note = await joplin.workspace.selectedNote();
 	if (!note) {
@@ -263,6 +213,7 @@ async function runCheck(showDialog: boolean): Promise<void> {
 		mistakes,
 		detectedLanguage: String(result.language?.detectedLanguage?.name || ''),
 		token,
+		text,
 	};
 
 	if (showDialog) {
@@ -275,11 +226,16 @@ async function runCheck(showDialog: boolean): Promise<void> {
 		if (truncated) {
 			notes.push('Die Notiz wurde nur bis zur Textlänge-Begrenzung (30000 Zeichen) geprüft.');
 		}
-		const request = await showResultsDialog(result, mistakes, notes.join(' '));
-		if (request && (await applyDialogReplacement(request))) {
-			// Korrektur wurde angewendet: Hervorhebungen aktualisieren und den
-			// Dialog mit dem neuen Prüfergebnis erneut öffnen.
-			await runCheck(true);
+		const dialogCheck = lastCheck;
+		const choices = await showResultsDialog(result, dialogCheck, notes.join(' '));
+		if (choices && choices.length) {
+			if (await applyDialogReplacements(dialogCheck, choices)) {
+				// Nach gemeinsamer Übernahme nur Hervorhebungen aktualisieren.
+				// Kein erneutes Öffnen des Dialogs.
+				await runCheck(false);
+			} else {
+				await showMessageBox('<p>Es wurde nichts übernommen: Die Notiz oder das Prüfergebnis hat sich geändert, oder die Auswahl enthält überlappende Fundstellen. Bitte erneut prüfen und je überlappender Textstelle nur eine Korrektur auswählen.</p>');
+			}
 		}
 	}
 }
@@ -289,8 +245,10 @@ async function runCheck(showDialog: boolean): Promise<void> {
 let lastAutoCheckAt = 0;
 
 function scheduleAutoCheck(): void {
+	if (resultsDialogOpen) return;
 	if (autoCheckTimer) clearTimeout(autoCheckTimer);
 	void getSettings().then((settings) => {
+		if (resultsDialogOpen) return;
 		if (!settings.autoCheck) return;
 		if (autoCheckTimer) clearTimeout(autoCheckTimer);
 		// Nach jeder Eingabepause wird nach der Wartezeit geprüft. Wird

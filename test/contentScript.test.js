@@ -17,12 +17,13 @@ function makeFixture(text) {
 	const commands = {};
 	const domListeners = {};
 	const messages = [];
+	const dispatches = [];
 	let state;
 	let posAtCoordsResult = null; // null = Klick außerhalb des Texts
 
 	const view = {
 		get state() { return state; },
-		dispatch(spec) { state = state.update(spec).state; },
+		dispatch(spec) { dispatches.push(spec); state = state.update(spec).state; },
 		dom: {
 			addEventListener(name, handler) { domListeners[name] = handler; },
 		},
@@ -53,7 +54,7 @@ function makeFixture(text) {
 		return { count, ranges };
 	};
 
-	return { view, state: () => state, commands, decorations, domListeners, messages };
+	return { view, state: () => state, commands, decorations, domListeners, messages, dispatches };
 }
 
 const MISTAKE = (offset, word, type = 'spelling') => ({
@@ -194,6 +195,37 @@ async function run() {
 		'Textänderung als ltTextChanged gemeldet',
 	);
 	assert.strictEqual(fx7.messages.filter((m) => m && m.type === 'ltTextChanged').length, 1, 'genau eine Meldung pro Änderung');
+
+	// Mehrfachkorrektur: unterschiedliche Ersatzlängen, auch Löschen.
+	const batchText = 'Tesdt und Feler mit doppelt doppelt.';
+	const batchFx = makeFixture(batchText);
+	const batchToken = batchFx.commands.ltShowMistakes({
+		mistakes: [MISTAKE(0, 'Tesdt')], hash: djb2(batchText), noteId: 'batch',
+	});
+	const edits = [
+		{ from: 0, to: 5, text: 'Test', expected: 'Tesdt' },
+		{ from: 10, to: 15, text: 'Fehler', expected: 'Feler' },
+		{ from: batchText.lastIndexOf('doppelt'), to: batchText.length, text: '', expected: 'doppelt.' },
+	];
+	// Ungültige letzte Änderung darf nicht die ersten beiden anwenden.
+	const countBefore = batchFx.dispatches.length;
+	assert.strictEqual(batchFx.commands.ltReplaceBatch(
+		[edits[0], { ...edits[1], expected: 'FALSCH' }], batchToken, batchText,
+	), false);
+	assert.strictEqual(batchFx.commands.ltGetText(), batchText);
+	assert.strictEqual(batchFx.dispatches.length, countBefore);
+	assert.strictEqual(batchFx.commands.ltReplaceBatch(
+		[edits[0], { from: 1, to: 3, expected: 'es', text: 'X' }], batchToken, batchText,
+	), false, 'Überlappung abgelehnt');
+	assert.strictEqual(batchFx.commands.ltReplaceBatch(
+		[edits[0], edits[0]], batchToken, batchText,
+	), false, 'doppelte Fundstelle abgelehnt');
+	assert.strictEqual(batchFx.commands.ltReplaceBatch(edits, batchToken + 1, batchText), false);
+	assert.strictEqual(batchFx.commands.ltReplaceBatch(edits, batchToken, batchText + 'X'), false);
+	assert.strictEqual(batchFx.commands.ltReplaceBatch(edits, batchToken, batchText), true);
+	assert.strictEqual(batchFx.commands.ltGetText(), 'Test und Fehler mit doppelt ');
+	assert.strictEqual(batchFx.dispatches.length, countBefore + 1, 'gesamte Auswahl in einer Transaktion');
+	assert.strictEqual(batchFx.commands.ltReplaceBatch(edits, batchToken, batchText), false, 'Token nach Übernahme ungültig');
 
 	console.log('Alle Content-Script-Integrationstests bestanden.');
 }

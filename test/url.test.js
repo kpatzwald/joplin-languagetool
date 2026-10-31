@@ -20,16 +20,16 @@ const { normalizeCheckUrl } = require(path.join(outDir, 'languagetool.js'));
 assert.strictEqual(typeof normalizeCheckUrl, 'function', 'Funktion exportiert');
 
 const cases = [
+	['https://languagetool.example.org', 'https://languagetool.example.org/v2/check'],
 	['https://api.languagetool.org', 'https://api.languagetool.org/v2/check'],
-	['https://api.languagetool.org', 'https://api.languagetool.org/v2/check'],
-	['https://api.languagetool.org/', 'https://api.languagetool.org/v2/check'],
-	['https://api.languagetool.org///', 'https://api.languagetool.org/v2/check'],
+	['https://languagetool.example.org/', 'https://languagetool.example.org/v2/check'],
+	['https://languagetool.example.org///', 'https://languagetool.example.org/v2/check'],
 	['https://api.languagetool.org/v2', 'https://api.languagetool.org/v2/check'],
 	['https://api.languagetool.org/v2/', 'https://api.languagetool.org/v2/check'],
-	['https://api.languagetool.org/v2/check', 'https://api.languagetool.org/v2/check'],
-	['https://api.languagetool.org/v2/check/', 'https://api.languagetool.org/v2/check'],
-	['api.languagetool.org/v2/check', 'https://api.languagetool.org/v2/check'],
-	['  https://api.languagetool.org  ', 'https://api.languagetool.org/v2/check'],
+	['https://languagetool.example.org/v2/check', 'https://languagetool.example.org/v2/check'],
+	['https://languagetool.example.org/v2/check/', 'https://languagetool.example.org/v2/check'],
+	['languagetool.example.org/v2/check', 'https://languagetool.example.org/v2/check'],
+	['  https://languagetool.example.org  ', 'https://languagetool.example.org/v2/check'],
 	['https://myserver.example/lt/v2/check', 'https://myserver.example/lt/v2/check'],
 ];
 
