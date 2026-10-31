@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024 Alberto Di Biase
+Copyright (c) 2026 OSZ2 (LanguageTool-Plugin für Joplin)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -11,6 +11,15 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
+Hinweise zur Herkunft:
+- Die Dateien api/, webpack.config.js, tsconfig.json, plugin.config.json und
+  GENERATOR_DOC.md basieren auf dem offiziellen Joplin-Plugin-Template
+  (generator-joplin, https://github.com/laurent22/joplin, MIT, Copyright (c)
+  Laurent Cozic).
+- Die Grundidee (LanguageTool-Integration in Joplin) wurde inspiriert von
+  https://github.com/tito21/joplin-langugetool (MIT, Copyright (c) 2024
+  Alberto Di Biase). Es wurde kein Code direkt übernommen.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
