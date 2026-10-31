@@ -1,6 +1,6 @@
 import joplin from 'api';
 import { SettingItemType } from 'api/types';
-import { setUiLanguage, translateSetting } from './i18n';
+import { resolveUiLanguage, setUiLanguage, translateSetting } from './i18n';
 
 export interface PluginSettings {
 	url: string;
@@ -24,19 +24,33 @@ export async function registerSettings(): Promise<void> {
 
 	await joplin.settings.registerSettings({
 		// Bootstrap this setting before reading its persisted value. Keep its
-		// label bilingual so it is always recognizable in either language.
+		// label multilingual so it is recognizable in every supported language.
 		'languagetool.uiLanguage': {
-			value: 'en',
+			value: 'auto',
 			type: SettingItemType.String,
 			section: 'languagetool',
 			public: true,
 			isEnum: true,
-			options: { en: 'English', de: 'Deutsch' },
-			label: 'Interface language / Oberflächensprache',
-			description: 'Restart Joplin after changing this setting. / Joplin nach dem Ändern neu starten.',
+			options: { auto: 'Automatic (Joplin)', en: 'English', de: 'Deutsch', fr: 'Français' },
+			label: 'Interface language / Sprache / Langue',
+			description: 'Restart Joplin after changing this setting. / Joplin nach dem Ändern neu starten. / Redémarrez Joplin après modification.',
 		},
 	});
-	setUiLanguage(await joplin.settings.value('languagetool.uiLanguage'));
+	const preference = await joplin.settings.value('languagetool.uiLanguage');
+	let locale: unknown;
+	if (preference === 'auto' || preference === undefined || preference === null) {
+		try {
+			// Prefer the current API; retain compatibility with older Joplin versions.
+			if (typeof joplin.settings.globalValues === 'function') {
+				[locale] = await joplin.settings.globalValues(['locale']);
+			} else if (typeof joplin.settings.globalValue === 'function') {
+				locale = await joplin.settings.globalValue('locale');
+			}
+		} catch (error) {
+			console.warn('LanguageTool: Could not read Joplin locale; using English.', error);
+		}
+	}
+	setUiLanguage(resolveUiLanguage(preference, locale));
 
 	const items = {
 		'languagetool.url': {

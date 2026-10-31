@@ -40,7 +40,7 @@ async function run() {
 	});
 	await settings.registerSettings();
 	assert.strictEqual(Object.keys(registered).length, 12);
-	assert.strictEqual(registered['languagetool.uiLanguage'].value, 'en');
+	assert.strictEqual(registered['languagetool.uiLanguage'].value, 'auto');
 	assert.deepStrictEqual(Object.values(registered).slice(1).map((item) => item.label), [
 		'Server URL', 'Language', 'Mother tongue', 'Check automatically',
 		'Delay before automatic checking (ms)', 'Mask Markdown syntax', 'Disabled rules',

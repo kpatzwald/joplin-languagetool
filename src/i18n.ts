@@ -76,12 +76,97 @@ export const de = {
 };
 
 export type TranslationKey = keyof typeof de;
-export type UiLanguage = 'en' | 'de';
-export const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en: {}, de };
+export const fr: Record<TranslationKey, string> = {
+	'Server URL': 'URL du serveur',
+	'Address of the /v2/check endpoint. Defaults to the free public LanguageTool API (api.languagetool.org). Alternatively, use a self-hosted server, e.g. https://languagetool.example.org/v2/check':
+		'Adresse du point de terminaison /v2/check. Par défaut, utilise l’API publique gratuite de LanguageTool (api.languagetool.org). Vous pouvez aussi utiliser un serveur auto-hébergé, par exemple https://languagetool.example.org/v2/check',
+	'Language': 'Langue de vérification',
+	'Language code such as de-DE or en-US. Use "auto" for automatic language detection by LanguageTool.':
+		'Code de langue tel que fr-FR ou en-US. Utilisez "auto" pour la détection automatique de la langue par LanguageTool.',
+	'Mother tongue': 'Langue maternelle',
+	'Helps LanguageTool apply rules for common mistakes made by speakers of other languages. Leave empty to disable.':
+		'Aide LanguageTool à appliquer les règles relatives aux erreurs courantes des locuteurs d’autres langues. Laissez vide pour désactiver.',
+	'Check automatically': 'Vérifier automatiquement',
+	'Checks the note while typing: after the configured delay or starts a check at least every 5 seconds during continuous typing. Warning: this automatically sends the note text to the LanguageTool server.':
+		'Vérifie la note pendant la saisie après le délai configuré, ou lance une vérification au moins toutes les 5 secondes lors d’une saisie continue. Attention : le texte de la note est automatiquement envoyé au serveur LanguageTool.',
+	'Delay before automatic checking (ms)': 'Délai avant la vérification automatique (ms)',
+	'Only used when "Check automatically" is enabled.':
+		'Utilisé uniquement si "Vérifier automatiquement" est activé.',
+	'Mask Markdown syntax': 'Masquer la syntaxe Markdown',
+	'Masks Markdown syntax (#, *, `, links, code blocks, etc.) before checking to reduce false positives.':
+		'Masque la syntaxe Markdown (#, *, `, liens, blocs de code, etc.) avant la vérification pour réduire les faux positifs.',
+	'Disabled rules': 'Règles désactivées',
+	'Comma-separated LanguageTool rule IDs, e.g. GERMAN_SPELLER_RULE. Add entries using the editor context menu.':
+		'Identifiants de règles LanguageTool séparés par des virgules, par exemple GERMAN_SPELLER_RULE. Ajoutez des entrées via le menu contextuel de l’éditeur.',
+	'Disabled categories': 'Catégories désactivées',
+	'Comma-separated category IDs, e.g. TYPOGRAPHY, STYLE.':
+		'Identifiants de catégories séparés par des virgules, par exemple TYPOGRAPHY, STYLE.',
+	'Personal dictionary': 'Dictionnaire personnel',
+	'Words to ignore, separated by commas or newlines. Add entries using the editor context menu.':
+		'Mots à ignorer, séparés par des virgules ou des sauts de ligne. Ajoutez des entrées via le menu contextuel de l’éditeur.',
+	'Username (optional)': 'Nom d’utilisateur (facultatif)',
+	'Only required if the server needs an API username, e.g. LanguageTool Premium.':
+		'Nécessaire uniquement si le serveur exige un nom d’utilisateur pour l’API, par exemple LanguageTool Premium.',
+	'API key (optional)': 'Clé API (facultative)',
+	'Only required if the server needs an API key.':
+		'Nécessaire uniquement si le serveur exige une clé API.',
+	'Apply': 'Appliquer',
+	'Cancel': 'Annuler',
+	'unknown': 'inconnue',
+	'Unknown error': 'Erreur inconnue',
+	'No note selected.': 'Aucune note sélectionnée.',
+	'LanguageTool check failed': 'Échec de la vérification LanguageTool',
+	'Please check the server URL in the settings.': 'Veuillez vérifier l’URL du serveur dans les paramètres.',
+	'Highlights are only available in the Markdown editor (CodeMirror). Spell checking in the rich text editor is not supported.':
+		'Le surlignage est disponible uniquement dans l’éditeur Markdown (CodeMirror). La vérification orthographique dans l’éditeur de texte enrichi n’est pas prise en charge.',
+	'The note was only checked up to the text length limit (30000 characters).':
+		'La note n’a été vérifiée que jusqu’à la limite de longueur du texte (30000 caractères).',
+	'No changes were applied: the note or check result has changed, or the selection contains overlapping matches. Please check again and select only one correction for each overlapping text range.':
+		'Aucune modification n’a été appliquée : la note ou le résultat de la vérification a changé, ou la sélection contient des passages qui se chevauchent. Relancez la vérification et ne sélectionnez qu’une seule correction pour chaque zone de chevauchement.',
+	'LanguageTool: Check note': 'LanguageTool : vérifier la note',
+	'LanguageTool: Clear highlights': 'LanguageTool : effacer le surlignage',
+	'LanguageTool: Apply suggestion': 'LanguageTool : appliquer la suggestion',
+	'LanguageTool: Ignore word': 'LanguageTool : ignorer le mot',
+	'LanguageTool: Disable rule': 'LanguageTool : désactiver la règle',
+	'Delete': 'Supprimer',
+	'Always ignore "{word}"': 'Toujours ignorer "{word}"',
+	'Disable rule "{rule}"': 'Désactiver la règle "{rule}"',
+	'Select a correction': 'Choisir une correction',
+	'Leave unchanged': 'Laisser inchangé',
+	'Rule:': 'Règle :',
+	'LanguageTool check': 'Vérification LanguageTool',
+	'{count} match(es), detected language: {language}': '{count} passage(s) signalé(s), langue détectée : {language}',
+	'No errors found.': 'Aucune erreur trouvée.',
+	'Select a suggestion for as many matches as you like. Only "Apply" changes the text. "Cancel" discards the entire selection.':
+		'Choisissez une suggestion pour autant de passages que vous le souhaitez. Seul "Appliquer" modifie le texte. "Annuler" abandonne toute la sélection.',
+	'Applying corrections is unavailable. Please check again in the Markdown editor.':
+		'L’application des corrections est indisponible. Relancez la vérification dans l’éditeur Markdown.',
+	'Matches and correction suggestions': 'Passages signalés et suggestions de correction',
+	'No server URL configured.': 'Aucune URL de serveur configurée.',
+	'Server unreachable ({url}): {detail}': 'Serveur inaccessible ({url}) : {detail}',
+	' Hint: the URL usually needs to end with "/v2/check".': ' Conseil : l’URL doit généralement se terminer par "/v2/check".',
+	'Server returned HTTP {status} ({url}){detail}{hint}': 'Le serveur a renvoyé HTTP {status} ({url}){detail}{hint}',
+	'The server response is not valid JSON.': 'La réponse du serveur n’est pas un JSON valide.',
+	'Unexpected server response structure (no "matches" array).': 'Structure inattendue de la réponse du serveur (tableau "matches" absent).',
+};
+
+export type UiLanguage = 'en' | 'de' | 'fr';
+export const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en: {}, de, fr };
 let activeLanguage: UiLanguage = 'en';
 
 export function normalizeUiLanguage(value: unknown): UiLanguage {
-	return value === 'de' ? 'de' : 'en';
+	// Joplin locales use underscores; also accept BCP 47 tags and region variants.
+	const base = typeof value === 'string' ? value.trim().toLowerCase().split(/[-_]/)[0] : '';
+	return base === 'de' || base === 'fr' ? base : 'en';
+}
+
+export function resolveUiLanguage(preference: unknown, joplinLocale?: unknown): UiLanguage {
+	// Preserve explicit choices from earlier releases. Invalid stored choices
+	// fall back to English; missing preferences use the new automatic default.
+	if (preference === undefined || preference === null || preference === 'auto') {
+		return normalizeUiLanguage(joplinLocale);
+	}
+	return normalizeUiLanguage(preference);
 }
 
 export function setUiLanguage(value: unknown): void {

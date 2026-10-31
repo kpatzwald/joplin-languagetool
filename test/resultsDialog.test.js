@@ -184,16 +184,18 @@ async function testMain(action, uiLanguage = 'en') {
 		assert.ok(menu.items.some((item) => item.label === i18n.t('Disable rule "{rule}"', { rule: 'TEST' })));
 	} else {
 		assert.strictEqual(checks, 1);
-		assert.ok(messages.some((message) => message.includes(
-			uiLanguage === 'de' ? 'Es wurde nichts übernommen' : 'No changes were applied',
-		)));
+		assert.ok(messages.some((message) => message.includes({
+			en: 'No changes were applied',
+			de: 'Es wurde nichts übernommen',
+			fr: 'Aucune modification n’a été appliquée',
+		}[uiLanguage])));
 	}
 	if (action === 'note') assert.strictEqual(batchCalls, 0, 'no writes to a different note');
 }
 
 (async () => {
-	for (const language of ['en', 'de']) {
+	for (const language of ['en', 'de', 'fr']) {
 		for (const action of ['apply', 'cancel', 'stale', 'note']) await testMain(action, language);
 	}
-	console.log('English and German dialog DOM, batch selection, main-script flow, cancellation and stale selection tests passed.');
+	console.log('English, German and French dialog DOM, batch selection, main-script flow, cancellation and stale selection tests passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });
