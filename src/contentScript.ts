@@ -7,6 +7,7 @@
 import { Range, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView } from '@codemirror/view';
 import { MistakePayload, hashString } from './common';
+import { validateBatch } from './resultsDialog';
 
 interface ContentScriptContext {
 	contentScriptId: string;
@@ -171,6 +172,25 @@ export default (context: ContentScriptContext) => {
 				view.dispatch({ effects: [clearMistakesEffect.of(null), clearResultTokenEffect.of(null)] });
 				return true;
 			});
+
+			// Ein einziger CodeMirror-Schreibvorgang, alle Positionen beziehen
+			// sich auf denselben Originaltext. Keine Teilanwendung bei Fehlern.
+			codeMirrorWrapper.registerCommand(
+				'ltReplaceBatch',
+				(edits: unknown, resultToken: number, expectedDocument: string) => {
+					if (typeof resultToken !== 'number'
+						|| view.state.field(resultTokenField, false) !== resultToken
+						|| typeof expectedDocument !== 'string'
+						|| currentText() !== expectedDocument) return false;
+					const batch = validateBatch(expectedDocument, edits);
+					if (!batch) return false;
+					view.dispatch({
+						changes: batch.map(({ from, to, text }) => ({ from, to, insert: text })),
+						userEvent: 'input.languagetool',
+					});
+					return true;
+				},
+			);
 
 			// Einen Bereich des Texts ersetzen. Gebunden an das aktuelle
 			// Prüfergebnis: Das Ergebnis-Token muss noch gültig sein (ungültig

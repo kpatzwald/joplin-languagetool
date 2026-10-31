@@ -9,8 +9,8 @@ Basiert in Teilen auf [tito21/joplin-langugetool](https://github.com/tito21/jopl
 - **Notiz prüfen**: Befehl `LanguageTool: Notiz prüfen` über das Werkzeuge-Menü, die Symbolleiste (Schaltfläche bei Bedarf über Rechtsklick auf die Symbolleiste → Anpassen einblenden) oder die Befehlspalette (Strg+Umschalt+P).
 - **Hervorhebungen im Editor**: Rechtschreibfehler (rote Wellenlinie), Grammatik-/Zeichensetzungsfehler (orange Wellenlinie), Stilhinweise (graue gepunktete Linie). Der Mauszeiger über einer Fundstelle zeigt die Fehlermeldung.
 - **Korrekturvorschläge per Rechtsklick**: Rechtsklick auf eine hervorgehobene Stelle zeigt im Kontextmenü Korrekturvorschläge, „Wort immer ignorieren" und „Regel deaktivieren".
-- **Ergebnisdialog**: Die manuelle Prüfung öffnet zusätzlich eine Übersicht aller Fundstellen mit Meldung, Vorschlägen und Regel.
-- **Automatische Prüfung** (optional, standardmäßig aus): prüft einige Sekunden nach dem letzten Tastendruck. Hinweis: Dabei wird der Notiztext automatisch an den Server übertragen.
+- **Ergebnisdialog (v1.3.0)**: Übersicht mit größeren Textausschnitten (bis zu 180 Zeichen vor und nach jeder Fundstelle), markiertem Fehler und auswählbaren Vorschlägen. Mehrere Korrekturen auswählen und erst mit „Übernehmen“ gemeinsam anwenden; „Abbrechen“ verwirft die Auswahl.
+- **Automatische Prüfung** (abschaltbar, bei Neuinstallation standardmäßig an): prüft nach einer Eingabepause bzw. startet bei fortlaufender Eingabe spätestens nach fünf Sekunden eine Prüfung. Hinweis: Dabei wird der Notiztext automatisch an den Server übertragen; Antwortzeit und laufende Textänderungen können die Anzeige verzögern.
 - **Markdown-freundlich**: Markdown-Syntax (Überschriften, Links, Codeblöcke, Tabellen …) wird vor der Prüfung ausgeblendet, damit sie nicht als Fehler gemeldet wird. Die Positionen der Fundstellen bleiben exakt erhalten.
 - **Eigenes Wörterbuch** und **deaktivierte Regeln/Kategorien** (in den Plugin-Einstellungen, kommagetrennt).
 
@@ -43,8 +43,12 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 1. Notiz öffnen und mit Markdown-Editor bearbeiten.
 2. **Strg+Umschalt+P** → „LanguageTool: Notiz prüfen" (oder Werkzeuge-Menü / Symbolleistenschaltfläche).
 3. Fehler werden farbig unterstrichen. **Live-Prüfung:** Bereits beim Tippen wird geprüft – standardmäßig 1 Sekunde nach der letzten Eingabe und während durchgehender Eingabe spätestens alle 5 Sekunden (abschaltbar). **Rechtsklick** auf eine Fundstelle zeigt die Meldung und die Korrekturvorschläge an.
-4. Einen **Korrekturvorschlag auswählen** – er wird direkt in den Notiztext übernommen (seit v1.1.0). Auch im **Ergebnisdialog** sind Vorschläge seit v1.2.0 klickbar: Die Korrektur wird angewendet und der Dialog zeigt danach die verbleibenden Fehler.
+4. Im **Rechtsklickmenü** wird der gewählte Vorschlag direkt übernommen. Im **Ergebnisdialog** dagegen wählen Sie bei beliebig vielen Fundstellen jeweils einen Vorschlag; bis zum Klick auf **„Übernehmen“** bleibt die Notiz unverändert. „Unverändert lassen“ nimmt die Auswahl für eine Fundstelle zurück. „Abbrechen“ verwirft alle Auswahlen. Nach „Übernehmen“ schließt der Dialog einmalig und die Hervorhebungen werden im Hintergrund neu geprüft.
 5. Über das Rechtsklickmenü lassen sich Wörter ins eigene Wörterbuch aufnehmen oder einzelne Regeln deaktivieren; die Notiz wird danach automatisch neu geprüft.
+
+Während der Ergebnisdialog geöffnet ist, pausiert die automatische Prüfung, damit sie die Auswahl nicht durch ein neues Ergebnis ungültig macht. Alle ausgewählten Änderungen werden vorab geprüft und in einer einzigen Editor-Transaktion angewendet. Überlappende Fundstellen oder veraltete Ergebnisse werden abgelehnt, ohne einen Teil der Auswahl zu schreiben. Bei einer Überlappung wählen Sie bei der nächsten Prüfung bitte nur eine der betreffenden Korrekturen aus.
+
+Seit v1.3.1 hat die Fundstellenliste einen eigenen vertikalen Scrollbereich. Der Kopfbereich bleibt außerhalb dieser Liste; „Übernehmen“ und „Abbrechen“ befinden sich weiterhin in Joplins separater Schaltflächenleiste. Der Scrollbereich lässt sich auch per Tabulatortaste fokussieren und anschließend mit den Pfeiltasten bzw. Bild auf/Bild ab bedienen.
 
 ## Einstellungen
 
@@ -53,7 +57,7 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 | Server-URL | `https://api.languagetool.org/v2/check` | öffentliche Gratis-API oder eigene Instanz |
 | Sprache | `auto` | z. B. `de-DE`, `en-US` oder `auto` |
 | Muttersprache | `de-DE` | verbessert Regeln für typische Fehler |
-| Automatisch prüfen | an | Prüfung bereits beim Tippen (ca. 2 s nach letzter Eingabe) |
+| Automatisch prüfen | an | Prüfung nach Eingabepause bzw. beim Tippen |
 | Wartezeit | 1000 ms | Verzögerung nach Eingabepause (beim Tippen spätestens alle 5 s) |
 | Markdown-Syntax ausblenden | an | weniger Fehlalarme |
 | Deaktivierte Regeln / Kategorien | leer | kommagetrennte IDs |
@@ -74,7 +78,9 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 
 ## Status
 
-Build und Paketierung geprüft, die automatisierten Content-Script-Integrationstests sind bestanden, der API-Aufruf wurde gegen die öffentliche API (api.languagetool.org) und früher gegen LanguageTool 6.8 auf die eigene Instanz verifiziert. Ein Laufzeittest in der Joplin-GUI (Hervorhebungen, Kontextmenü, Einstellungen) steht noch aus – Feedback ist willkommen.
+Die Version 1.3.1 wurde mit automatisierten Editor-Tests, DOM-Tests der nativen Formular-Auswahl und Ablauf-Tests des Hauptskripts gegen eine gemockte Joplin-API geprüft. Zusätzlich werden Struktur und CSS des Scrollbereichs mit 100 Fundstellen geprüft; diese DOM-Tests messen keine tatsächlichen Bildschirmabmessungen. Die Tests benötigen keinen erreichbaren LanguageTool-Server. Sie ersetzen keinen vollständigen Laufzeittest der neuen Dialogversion in der Joplin-GUI; dieser steht noch aus.
+
+Zum Nachprüfen: `npm ci`, `npm run dist`, `npm test`. Die DOM-Tests prüfen die tatsächlichen Formularwerte nach dem Anklicken mehrerer Vorschläge; die Editor-Tests prüfen die gemeinsame Anwendung sowie die vollständige Ablehnung ungültiger oder überlappender Änderungen.
 
 ## Lizenz
 
