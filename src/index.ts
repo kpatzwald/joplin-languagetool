@@ -85,7 +85,7 @@ function buildResultsHtml(
 			const suggestionButtons = mistake.replacements
 				.map((r, suggestionIndex) => {
 					const label = r === '' ? 'Löschen' : r;
-					return `<button type="submit" class="lt-sugg-btn" name="ltReplace" value="${mistakeIndex}:${suggestionIndex}">${escapeHtml(label)}</button>`;
+					return `<button type="button" class="lt-sugg-btn" data-choice="${mistakeIndex}:${suggestionIndex}">${escapeHtml(label)}</button>`;
 				})
 				.join(' ');
 			const suggestions = suggestionButtons
@@ -117,7 +117,7 @@ function buildResultsHtml(
 		<h3>LanguageTool-Prüfung</h3>
 		<p>${mistakes.length === 0 ? 'Keine Fehler gefunden.' : `${mistakes.length} Fundstelle(n) – erkannte Sprache: ${escapeHtml(language)}`}</p>
 		<form name="ltForm">
-			<button type="submit" name="ltNoop" value="1" style="display:none"></button>
+			<input type="hidden" name="ltReplaceChoice" value="">
 			${mistakes.length ? `<ul>${items}</ul>` : ''}
 		</form>
 		${ignoredWordsNote ? `<p class="lt-note">${escapeHtml(ignoredWordsNote)}</p>` : ''}
@@ -160,10 +160,12 @@ async function showResultsDialog(
 		await joplin.views.dialogs.setFitToContent(handle, true);
 		await joplin.views.dialogs.setButtons(handle, [{ id: 'ok', title: 'Schließen' }]);
 		await joplin.views.dialogs.setHtml(handle, buildResultsHtml(result, mistakes, notes));
+		await joplin.views.dialogs.addScript(handle, './dialog.js');
 		const dialogResult = await joplin.views.dialogs.open(handle);
 
-		// Gewählter Vorschlag? Formular-Buttons liefern "FehlerIndex:VorschlagIndex".
-		const raw = (dialogResult as any)?.formData?.ltForm?.ltReplace;
+		// Gewählter Vorschlag? Das versteckte Eingabefeld liefert
+		// "FehlerIndex:VorschlagIndex" (gesetzt per Klick aus dialog.js).
+		const raw = (dialogResult as any)?.formData?.ltForm?.ltReplaceChoice;
 		if (typeof raw !== 'string') return null;
 		const [mistakeIndex, suggestionIndex] = raw.split(':').map(Number);
 		if (!Number.isInteger(mistakeIndex) || !Number.isInteger(suggestionIndex)) return null;
@@ -282,14 +284,26 @@ async function runCheck(showDialog: boolean): Promise<void> {
 	}
 }
 
+// Zeitpunkt der letzten automatischen Prüfung – dafür, dass Fehler
+// auch bei durchgehender Eingabe laufend erscheinen.
+let lastAutoCheckAt = 0;
+
 function scheduleAutoCheck(): void {
 	if (autoCheckTimer) clearTimeout(autoCheckTimer);
 	void getSettings().then((settings) => {
 		if (!settings.autoCheck) return;
 		if (autoCheckTimer) clearTimeout(autoCheckTimer);
+		// Nach jeder Eingabepause wird nach der Wartezeit geprüft. Wird
+		// weitergetippt, wird trotzdem spätestens alle 5 Sekunden geprüft,
+		// damit die Hervorhebungen auch während des Schreibens aktuell
+		// bleiben (wie in der Firefox-Erweiterung).
+		const delay = Math.max(300, settings.autoCheckDelay);
+		const sinceLastCheck = Date.now() - lastAutoCheckAt;
+		const wait = Math.min(delay, Math.max(0, 5000 - sinceLastCheck));
 		autoCheckTimer = setTimeout(() => {
+			lastAutoCheckAt = Date.now();
 			void runCheck(false);
-		}, Math.max(500, settings.autoCheckDelay));
+		}, wait);
 	});
 }
 
