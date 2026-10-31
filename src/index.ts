@@ -1,4 +1,5 @@
 import joplin from 'api';
+import { t } from './i18n';
 import { ContentScriptType, MenuItemLocation, ToolbarButtonLocation, ViewHandle } from 'api/types';
 import { LT_MAX_TEXT, MistakePayload, hashString, mapMatches } from './common';
 import { LTCheckResponse, checkText } from './languagetool';
@@ -111,9 +112,9 @@ async function showResultsDialog(
 		const handle = await getDialog(RESULTS_DIALOG_ID);
 		await joplin.views.dialogs.setFitToContent(handle, false);
 		await joplin.views.dialogs.setButtons(handle, [
-			{ id: 'ok', title: 'Apply' }, { id: 'cancel', title: 'Cancel' },
+			{ id: 'ok', title: t('Apply') }, { id: 'cancel', title: t('Cancel') },
 		]);
-		const language = result.language?.detectedLanguage?.name || result.language?.name || 'unknown';
+		const language = result.language?.detectedLanguage?.name || result.language?.name || t('unknown');
 		await joplin.views.dialogs.setHtml(handle, buildResultsHtml(
 			language, check.mistakes, check.text, notes, check.token !== null,
 		));
@@ -143,7 +144,7 @@ async function runCheck(showDialog: boolean): Promise<void> {
 	const settings = await getSettings();
 	const note = await joplin.workspace.selectedNote();
 	if (!note) {
-		if (showDialog) await showMessageBox('<p>No note selected.</p>');
+		if (showDialog) await showMessageBox(`<p>${escapeHtml(t('No note selected.'))}</p>`);
 		return;
 	}
 
@@ -178,7 +179,7 @@ async function runCheck(showDialog: boolean): Promise<void> {
 		console.warn(`LanguageTool: ${message}`);
 		if (showDialog) {
 			await showMessageBox(
-				`<p><b>LanguageTool check failed</b></p><p>${escapeHtml(message)}</p><p>Please check the server URL in the settings.</p>`,
+				`<p><b>${escapeHtml(t('LanguageTool check failed'))}</b></p><p>${escapeHtml(message)}</p><p>${escapeHtml(t('Please check the server URL in the settings.'))}</p>`,
 			);
 		}
 		return;
@@ -220,11 +221,11 @@ async function runCheck(showDialog: boolean): Promise<void> {
 		const notes: string[] = [];
 		if (!hasEditorIntegration) {
 			notes.push(
-				'Highlights are only available in the Markdown editor (CodeMirror). Spell checking in the rich text editor is not supported.',
+				t('Highlights are only available in the Markdown editor (CodeMirror). Spell checking in the rich text editor is not supported.'),
 			);
 		}
 		if (truncated) {
-			notes.push('The note was only checked up to the text length limit (30000 characters).');
+			notes.push(t('The note was only checked up to the text length limit (30000 characters).'));
 		}
 		const dialogCheck = lastCheck;
 		const choices = await showResultsDialog(result, dialogCheck, notes.join(' '));
@@ -234,7 +235,7 @@ async function runCheck(showDialog: boolean): Promise<void> {
 				// Do not reopen the dialog.
 				await runCheck(false);
 			} else {
-				await showMessageBox('<p>No changes were applied: the note or check result has changed, or the selection contains overlapping matches. Please check again and select only one correction for each overlapping text range.</p>');
+				await showMessageBox(`<p>${escapeHtml(t('No changes were applied: the note or check result has changed, or the selection contains overlapping matches. Please check again and select only one correction for each overlapping text range.'))}</p>`);
 			}
 		}
 	}
@@ -295,7 +296,7 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolCheckNote',
-			label: 'LanguageTool: Check note',
+			label: t('LanguageTool: Check note'),
 			iconName: 'fas fa-spell-check',
 			execute: async () => {
 				await runCheck(true);
@@ -304,7 +305,7 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolClear',
-			label: 'LanguageTool: Clear highlights',
+			label: t('LanguageTool: Clear highlights'),
 			execute: async () => {
 				await clearEditor();
 			},
@@ -312,7 +313,7 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolReplace',
-			label: 'LanguageTool: Apply suggestion',
+			label: t('LanguageTool: Apply suggestion'),
 			// A correction is bound to its check result: the note must still
 			// be selected and the result token must be valid. The content
 			// script also synchronously checks the token and expected
@@ -336,7 +337,7 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolIgnoreWord',
-			label: 'LanguageTool: Ignore word',
+			label: t('LanguageTool: Ignore word'),
 			execute: async (word: string) => {
 				if (!word || typeof word !== 'string') return;
 				const current = String((await joplin.settings.value('languagetool.ignoredWords')) || '');
@@ -347,7 +348,7 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolIgnoreRule',
-			label: 'LanguageTool: Disable rule',
+			label: t('LanguageTool: Disable rule'),
 			execute: async (ruleId: string) => {
 				if (!ruleId || typeof ruleId !== 'string') return;
 				const current = String((await joplin.settings.value('languagetool.disabledRules')) || '');
@@ -396,7 +397,7 @@ joplin.plugins.register({
 
 				for (const suggestion of mistake.replacements.slice(0, 6)) {
 					items.push({
-						label: suggestion === '' ? 'Delete' : `"${suggestion}"`,
+						label: suggestion === '' ? t('Delete') : `"${suggestion}"`,
 						commandName: 'languagetoolReplace',
 						commandArgs: [
 							mistake.offset,
@@ -412,13 +413,13 @@ joplin.plugins.register({
 					items.push({ type: 'separator' });
 				}
 				items.push({
-					label: `Always ignore "${mistake.word}"`,
+					label: t('Always ignore "{word}"', { word: mistake.word }),
 					commandName: 'languagetoolIgnoreWord',
 					commandArgs: [mistake.word],
 				});
 				if (mistake.ruleId) {
 					items.push({
-						label: `Disable rule "${mistake.ruleId}"`,
+						label: t('Disable rule "{rule}"', { rule: mistake.ruleId }),
 						commandName: 'languagetoolIgnoreRule',
 						commandArgs: [mistake.ruleId],
 					});

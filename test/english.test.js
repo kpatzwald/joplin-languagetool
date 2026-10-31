@@ -29,17 +29,19 @@ async function run() {
 	assert.strictEqual(manifest.id, 'de.osz2.languagetool');
 	assert.strictEqual(manifest.version, pkg.version);
 
-	let registered;
+	const registered = {};
 	const settings = loadSource('settings', {
 		api: { default: { settings: {
 			registerSection: async () => {},
-			registerSettings: async (values) => { registered = values; },
+			registerSettings: async (values) => { Object.assign(registered, values); },
+			value: async () => 'en',
 		} } },
 		'api/types': { SettingItemType: {} },
 	});
 	await settings.registerSettings();
-	assert.strictEqual(Object.keys(registered).length, 11);
-	assert.deepStrictEqual(Object.values(registered).map((item) => item.label), [
+	assert.strictEqual(Object.keys(registered).length, 12);
+	assert.strictEqual(registered['languagetool.uiLanguage'].value, 'en');
+	assert.deepStrictEqual(Object.values(registered).slice(1).map((item) => item.label), [
 		'Server URL', 'Language', 'Mother tongue', 'Check automatically',
 		'Delay before automatic checking (ms)', 'Mask Markdown syntax', 'Disabled rules',
 		'Disabled categories', 'Personal dictionary', 'Username (optional)', 'API key (optional)',

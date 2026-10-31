@@ -1,4 +1,5 @@
 import { MistakePayload } from './common';
+import { getUiLanguage, t } from './i18n';
 
 export interface DialogChoice {
 	mistakeIndex: number;
@@ -32,15 +33,15 @@ export function buildResultsHtml(
 	const items = mistakes.map((mistake, index) => {
 		const options = mistake.replacements.map((suggestion, suggestionIndex) =>
 			`<label class="lt-option"><input type="radio" name="choice_${index}" value="${suggestionIndex}" ${canApply ? '' : 'disabled'}>
-			<span>${escapeHtml(suggestion === '' ? '[Delete]' : suggestion)}</span></label>`).join('');
+			<span>${escapeHtml(suggestion === '' ? `[${t('Delete')}]` : suggestion)}</span></label>`).join('');
 		return `<li>
 			<h4>${escapeHtml(mistake.message)}</h4>
 			<div class="lt-context">${contextHtml(text, mistake)}</div>
-			<fieldset><legend>Select a correction</legend>
+			<fieldset><legend>${escapeHtml(t('Select a correction'))}</legend>
 				<label class="lt-option"><input type="radio" name="choice_${index}" value="-1" checked>
-				<span>Leave unchanged</span></label>${options}
+				<span>${escapeHtml(t('Leave unchanged'))}</span></label>${options}
 			</fieldset>
-			<small>Rule: ${escapeHtml(mistake.ruleId)}${mistake.category ? ` (${escapeHtml(mistake.category)})` : ''}</small>
+			<small>${escapeHtml(t('Rule:'))} ${escapeHtml(mistake.ruleId)}${mistake.category ? ` (${escapeHtml(mistake.category)})` : ''}</small>
 		</li>`;
 	}).join('');
 	return `<style>
@@ -62,15 +63,16 @@ export function buildResultsHtml(
 		.lt-option { display: inline-flex; align-items: center; gap: 5px; margin: 4px 12px 4px 0; cursor: pointer; }
 		.lt-option input:checked + span { font-weight: bold; text-decoration: underline; }
 	</style>
-	<div class="lt-dialog">
+	<div class="lt-dialog" lang="${getUiLanguage()}">
 	<header class="lt-dialog-header">
-	<h3>LanguageTool check</h3>
-	<p>${mistakes.length ? `${mistakes.length} match(es), detected language: ${escapeHtml(language)}` : 'No errors found.'}</p>
-	<p>Select a suggestion for as many matches as you like. Only "Apply" changes the text.
-	"Cancel" discards the entire selection.</p>
-	${!canApply ? '<p>Applying corrections is unavailable. Please check again in the Markdown editor.</p>' : ''}
+	<h3>${escapeHtml(t('LanguageTool check'))}</h3>
+	<p>${escapeHtml(mistakes.length ? t('{count} match(es), detected language: {language}', {
+		count: mistakes.length, language,
+	}) : t('No errors found.'))}</p>
+	<p>${escapeHtml(t('Select a suggestion for as many matches as you like. Only "Apply" changes the text. "Cancel" discards the entire selection.'))}</p>
+	${!canApply ? `<p>${escapeHtml(t('Applying corrections is unavailable. Please check again in the Markdown editor.'))}</p>` : ''}
 	</header>
-	<div class="lt-results-scroll" role="region" aria-label="Matches and correction suggestions" tabindex="0">
+	<div class="lt-results-scroll" role="region" aria-label="${escapeHtml(t('Matches and correction suggestions'))}" tabindex="0">
 	<form name="ltForm"><ul>${items}</ul></form>
 	${notes ? `<p class="lt-note">${escapeHtml(notes)}</p>` : ''}
 	</div>

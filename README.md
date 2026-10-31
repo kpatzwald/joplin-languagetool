@@ -19,7 +19,7 @@ The existing plugin ID, `de.osz2.languagetool`, remains unchanged for update com
 - **Automatic checking:** enabled by default for new installations and can be disabled. Starts a check after a typing pause or at least every five seconds during continuous typing. Note text is sent automatically to the configured server; response times and ongoing edits can delay highlights.
 - **Markdown-friendly checking:** masks headings, links, code blocks, tables, and other Markdown syntax before checking, while preserving match positions.
 - **Personal dictionary and disabled rules/categories:** configurable in the plugin settings.
-- **English interface:** plugin labels, messages, comments, and documentation are in English. The checking language is configured independently. Messages, suggestions, category names, and detected language names returned by LanguageTool are displayed as received.
+- **Multilingual interface:** English is the default; German is available as a second interface language. The checking language is configured independently. Messages, suggestions, category names, and detected language names returned by LanguageTool are displayed as received. Documentation, source comments, and technical console diagnostics remain in English.
 
 ## Requirements
 
@@ -59,6 +59,7 @@ The match list has its own vertical scroll region. The header stays outside that
 
 | Setting | Default | Description |
 |---|---|---|
+| Interface language / Oberflächensprache | `English` | Choose `English` or `Deutsch`, then restart Joplin |
 | Server URL | `https://api.languagetool.org/v2/check` | Free public API or self-hosted server |
 | Language | `auto` | For example, `de-DE`, `en-US`, or `auto` |
 | Mother tongue | `de-DE` | Helps apply rules for common language-learning mistakes |
@@ -69,7 +70,29 @@ The match list has its own vertical scroll region. The header stays outside that
 | Personal dictionary | Empty | Words separated by commas or newlines |
 | Username / API key | Empty | Only needed for servers requiring credentials |
 
-Changing the interface to English does not change existing settings or the `de-DE` mother-tongue default. To check English text explicitly, set "Language" to `en-US` or another supported English variant; "auto" keeps automatic detection.
+Changing the interface language does not change existing settings or the `de-DE` mother-tongue default. To check English text explicitly, set "Language" to `en-US` or another supported English variant; "auto" keeps automatic detection.
+
+## Interface languages
+
+English is always the default for new installations, including when Joplin itself uses German. The plugin does not automatically follow Joplin's language.
+
+To enable German, open the plugin's LanguageTool settings, select `Deutsch` under **Interface language / Oberflächensprache**, save the setting, and restart Joplin. To return to English, select `English` and restart again. A restart applies the choice consistently to command/menu labels, settings descriptions, dialogs, accessibility labels, and plugin-generated error messages. Language selection does not apply immediately to an already running plugin.
+
+The language selector intentionally has a bilingual label and restart instruction so it remains recognizable in either interface language. The plugin's name and marketplace description remain English metadata. LanguageTool's own descriptions and suggestions, raw server errors, and detected language names are not translated by this plugin.
+
+### Adding another translation
+
+Translations live in `src/i18n.ts`. English source strings are the keys and the fallback; the German catalog supplies translations. Unsupported or missing language preferences fall back to English, as do missing individual translations.
+
+To add a language:
+
+1. Add a catalog with the same keys as `de`. Use `Record<TranslationKey, string>` to enforce completeness.
+2. Add its code to `UiLanguage`, `catalogs`, and `normalizeUiLanguage()`.
+3. Add a native-language option to `languagetool.uiLanguage` in `src/settings.ts`.
+4. Preserve placeholders such as `{word}`, `{count}`, and `{language}` exactly. Interpolation is single-pass, and dialog text must still be HTML-escaped.
+5. Add language-specific test cases and run the complete build and test suite.
+
+Keep README content, developer documentation, and code comments in English. Do not translate user note text, correction replacements, protocol fields, command IDs, setting keys, or the plugin ID.
 
 ## Technical notes and limitations
 
@@ -84,7 +107,7 @@ Changing the interface to English does not change existing settings or the `de-D
 
 ## Version and test status
 
-Version 1.3.3 translates plugin-owned interface text, settings descriptions, diagnostics, source comments, test descriptions, documentation, and attribution notes into English. The author remains Kay Patzwald, the plugin ID stays unchanged, and checking defaults and replacement logic are preserved.
+Version 1.4.0 adds an extensible translation catalog with English as the default interface and German as the second language. The interface language is selected in the plugin settings and applied after restarting Joplin. README content and code comments remain English. The author remains Kay Patzwald, the plugin ID stays unchanged, and checking defaults and replacement logic are preserved.
 
 Automated tests cover the editor integration using real CodeMirror state, native form values in a DOM environment, and main-script flows using a mocked Joplin API. Scroll-region structure and CSS are checked with 100 matches; these DOM tests do not measure actual screen dimensions. Tests require no running LanguageTool server and do not replace an end-to-end test in the Joplin GUI.
 
@@ -97,7 +120,7 @@ npm test
 npx tsc --noEmit --skipLibCheck --pretty false
 ```
 
-The form tests inspect actual values after selecting multiple suggestions. Editor tests verify atomic application and complete rejection of invalid or overlapping changes. A separate English-text regression test checks plugin-owned labels, fallback messages, settings, and client error messages without contacting a server.
+The form and main-script tests run in English and German and inspect actual values after selecting multiple suggestions. Editor tests verify atomic application and complete rejection of invalid or overlapping changes. Localization tests cover persisted language selection on startup, English defaults, unsupported language and missing-translation fallbacks, settings preservation, catalog coverage, placeholder consistency, escaped interpolation, and localized client errors. All HTTP responses in these tests are mocked.
 
 ## License
 

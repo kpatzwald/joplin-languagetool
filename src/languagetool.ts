@@ -6,6 +6,7 @@ export interface LTReplacement {
 }
 
 import { LTMatch } from './common';
+import { t } from './i18n';
 export { LTMatch };
 
 export interface LTCheckResponse {
@@ -62,7 +63,7 @@ function hostOf(url: string): string {
 // Preserves custom paths, e.g. behind a reverse proxy.
 export function normalizeCheckUrl(raw: string): string {
 	let url = String(raw || '').trim();
-	if (!url) throw new LTError('No server URL configured.');
+	if (!url) throw new LTError(t('No server URL configured.'));
 	if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
 	// Remove trailing slashes only when there is no query string.
 	if (!url.includes('?')) url = url.replace(/\/+$/, '');
@@ -105,7 +106,9 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 		});
 	} catch (error) {
 		throw new LTError(
-			`Server unreachable (${checkUrl}): ${error instanceof Error ? error.message : String(error)}`,
+			t('Server unreachable ({url}): {detail}', {
+				url: checkUrl, detail: error instanceof Error ? error.message : String(error),
+			}),
 		);
 	}
 
@@ -118,10 +121,12 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 			// Ignore.
 		}
 		const hint = response.status === 404
-			? ' Hint: the URL usually needs to end with "/v2/check".'
+			? t(' Hint: the URL usually needs to end with "/v2/check".')
 			: '';
 		throw new LTError(
-			`Server returned HTTP ${response.status} (${checkUrl})${detail ? `: ${detail}` : ''}${hint}`,
+			t('Server returned HTTP {status} ({url}){detail}{hint}', {
+				status: response.status, url: checkUrl, detail: detail ? `: ${detail}` : '', hint,
+			}),
 			response.status,
 		);
 	}
@@ -130,11 +135,11 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 	try {
 		data = (await response.json()) as LTCheckResponse;
 	} catch {
-		throw new LTError('The server response is not valid JSON.');
+		throw new LTError(t('The server response is not valid JSON.'));
 	}
 
 	if (!data || !Array.isArray(data.matches)) {
-		throw new LTError('Unexpected server response structure (no "matches" array).');
+		throw new LTError(t('Unexpected server response structure (no "matches" array).'));
 	}
 
 	return data;
