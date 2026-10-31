@@ -143,6 +143,21 @@ npm audit --audit-level=low
 
 The form and main-script tests run in English, German, and French and inspect actual values after selecting multiple suggestions. Editor tests verify atomic application and complete rejection of invalid or overlapping changes. Localization tests cover automatic Joplin locale detection, regional variants, manual overrides and upgrade preservation, current and legacy API paths, missing or failing APIs, English fallbacks, settings preservation, catalog coverage, placeholder consistency, escaped interpolation, and localized client errors. Policy tests verify public background-call blocking, old automatic-check preferences, correction and ignore paths, byte-safe truncation, rolling budgets, cooldowns, consent/cancellation/revocation, endpoint changes, and custom-server opt-in. A smoke test extracts the actual main script from the `.jpl` and exercises locale detection, consent, a single manual POST, public background blocking, attribution, and revocation in an isolated JavaScript VM. All HTTP responses and Joplin locale reads in these tests are mocked.
 
+## AI-assisted development
+
+This project was developed with substantial assistance from
+Perplexity Computer, including code generation, test development,
+debugging, and documentation.
+
+Kay Patzwald defines the requirements, performs hands-on testing,
+and maintains the project. Release decisions remain with the
+maintainer.
+
+AI-generated contributions may contain mistakes. Automated tests
+and practical testing help identify issues, but do not guarantee
+correctness or security. Bug reports and independent code reviews
+are welcome.
+
 ## License
 
 MIT; see `LICENSE`. The files `webpack.config.js`, `api/`, and `GENERATOR_DOC.md` originate from the official Joplin plugin template (`generator-joplin`, MIT).
