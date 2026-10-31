@@ -1,6 +1,6 @@
 {
 	"name": "joplin-plugin-languagetool",
-	"version": "1.3.2",
+	"version": "1.3.3",
 	"author": "Kay Patzwald",
 	"homepage": "https://github.com/kpatzwald/joplin-languagetool",
 	"repository": {
@@ -8,7 +8,7 @@
 		"url": "https://github.com/kpatzwald/joplin-languagetool.git"
 	},
 	"scripts": {
-		"test": "node test/contentScript.test.js && node test/resultsDialog.test.js && node test/url.test.js",
+		"test": "node test/contentScript.test.js && node test/resultsDialog.test.js && node test/url.test.js && node test/english.test.js",
 		"dist": "webpack --env joplin-plugin-config=buildMain && webpack --env joplin-plugin-config=buildExtraScripts && webpack --env joplin-plugin-config=createArchive",
 		"prepare": "npm run dist",
 		"updateVersion": "webpack --env joplin-plugin-config=updateVersion"

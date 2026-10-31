@@ -1,15 +1,14 @@
-// Entfernt Markdown-Syntax aus dem Notiztext, damit LanguageTool nur den
-// lesbaren Text prüft.
+// Masks Markdown syntax in the note so LanguageTool checks readable text only.
 //
-// Wichtig: Jede Ersetzung ersetzt jedes entfernte Zeichen durch genau ein
-// Leerzeichen. Die Länge des Textes bleibt dadurch exakt gleich und die
-// Offsets der LanguageTool-Fundstellen passen direkt auf den Originaltext
-// im Editor. Umlaute, Emojis und Zeilenumbrüche bleiben unverändert.
+// Important: every removed character is replaced with exactly one space.
+// This preserves the text length so LanguageTool match offsets map directly
+// to the original editor text. Accented characters, emoji and line breaks
+// remain unchanged.
 
 const replaceWithSpaces = (match: string): string => ' '.repeat(match.length);
 
-// Ersetzt in `s` alle Treffer von `re`. `re` muss zwei Gruppen haben:
-// Gruppe 1 = Marker (wird geleert), Gruppe 2 = innerer Text (bleibt erhalten).
+// Replaces all matches of `re` in `s`. `re` must have two groups:
+// group 1 = marker (masked), group 2 = inner text (preserved).
 function blankMarkers(s: string, re: RegExp): string {
 	return s.replace(re, (match, marker, inner) => {
 		if (typeof marker !== 'string' || typeof inner !== 'string') {
@@ -27,16 +26,16 @@ function blankLine(line: string): string {
 function stripLine(line: string): string {
 	let s = line;
 
-	// Überschriften-Marker (# ...)
+	// Heading markers (# ...).
 	s = s.replace(/^(\s{0,3}#{1,6})(\s+)/, replaceWithSpaces);
 
-	// Blockquote-Marker (> ...)
+	// Blockquote markers (> ...).
 	s = s.replace(/^(\s{0,3}>{1,})(\s?)/, replaceWithSpaces);
 
-	// Listen-Marker inkl. Aufgaben-Checkboxen: - * + 1. - [ ] - [x]
+	// List markers including task checkboxes: - * + 1. - [ ] - [x].
 	s = s.replace(/^(\s{0,3})([-*+]|\d{1,3}\.)(\s+\[[ xX]\]\s*|\s+)(?=\S)/, replaceWithSpaces);
 
-	// Tabellen-Trennzeilen (| --- | :--- |) und horizontale Linien (---, ***)
+	// Table separator rows (| --- | :--- |) and horizontal rules (---, ***).
 	if (/^[\s|:-]+$/.test(s) && (s.includes('-') || s.includes('|'))) {
 		return blankLine(s);
 	}
@@ -44,36 +43,36 @@ function stripLine(line: string): string {
 		return blankLine(s);
 	}
 
-	// Bilder vollständig leeren: ![alt](url)
+	// Mask images entirely: ![alt](url).
 	s = s.replace(/!\[[^\]]*\]\([^)]*\)/g, replaceWithSpaces);
 
-	// Links: [Text](url) -> nur den Text behalten
+	// Links: [text](url) -> preserve the text only.
 	s = s.replace(/\[([^\]]*)\]\(([^)]*)\)/g, (match, text) => {
 		if (typeof text !== 'string') return ' '.repeat(match.length);
 		return ' ' + text + ' '.repeat(Math.max(0, match.length - text.length - 1));
 	});
 
-	// Referenz-Links [text][ref] -> nur den Text behalten
+	// Reference links: [text][ref] -> preserve the text only.
 	s = s.replace(/\[([^\]]*)\]\[[^\]]*\]/g, (match, text) => {
 		if (typeof text !== 'string') return ' '.repeat(match.length);
 		return ' ' + text + ' '.repeat(Math.max(0, match.length - text.length - 1));
 	});
 
-	// Inline-Code (`...`) vollständig leeren
+	// Mask inline code (`...`) entirely.
 	s = s.replace(/`+[^`\n]*`+/g, replaceWithSpaces);
 
-	// Mathematik $...$
+	// Math: $...$.
 	s = s.replace(/\$[^$\n]+\$/g, replaceWithSpaces);
 
-	// HTML-Tags vollständig leeren
+	// Mask HTML tags entirely.
 	s = s.replace(/<\/?[a-zA-Z][^>]*>/g, replaceWithSpaces);
 
-	// Fett/Kursiv/Durchgestrichen: ***text*** **text** *text* ___text___ __text__ ~~text~~
+	// Bold/italic/strikethrough: ***text*** **text** *text* ___text___ __text__ ~~text~~.
 	s = blankMarkers(s, /(\*\*\*|___)(\S(?:[^*_]*?\S)?)\1/g);
 	s = blankMarkers(s, /(\*\*|__)(\S(?:[^*_]*?\S)?)\1/g);
 	s = blankMarkers(s, /(\*|~~)(\S(?:[^*_]*?\S)?)\1/g);
 
-	// _text_ nur an Wortgrenzen (keine Unterstriche in snake_case)
+	// _text_ at word boundaries only (not underscores in snake_case).
 	s = s.replace(/(^|\W)(_+)(\S(?:[^_]*?\S)?)(_+)(?=\W|$)/g, (match, lead, marker, inner) => {
 		if (typeof marker !== 'string' || typeof inner !== 'string') {
 			return ' '.repeat(match.length);
@@ -82,7 +81,7 @@ function stripLine(line: string): string {
 		return ' '.repeat(lead.length) + ' '.repeat(marker.length) + inner + ' '.repeat(pad);
 	});
 
-	// Verbleibende Tabellen-Pipes leeren
+	// Mask remaining table pipes.
 	s = s.replace(/\|/g, ' ');
 
 	return s;
