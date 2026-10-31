@@ -56,6 +56,33 @@ function hostOf(url: string): string {
 	}
 }
 
+// Normalisiert die konfigurierte Server-URL: Schema ergänzen (falls
+// vergessen), Leer- und End-Schrägstriche entfernen und den üblichen
+// API-Pfad /v2/check ergänzen, falls nur der Host (oder .../v2) angegeben
+// ist. Eigene Pfade (z. B. hinter einem Reverse-Proxy) werden respektiert.
+export function normalizeCheckUrl(raw: string): string {
+	let url = String(raw || '').trim();
+	if (!url) throw new LTError('Keine Server-URL konfiguriert.');
+	if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+	// End-Schrägstriche entfernen (nur ohne Query-String sinnvoll).
+	if (!url.includes('?')) url = url.replace(/\/+$/, '');
+	if (/\/v2$/i.test(url)) {
+		url += '/check';
+	} else {
+		try {
+			const parsed = new URL(url);
+			// Nur ergänzen, wenn überhaupt kein Pfad angegeben ist – fremde
+			// Pfade (Reverse-Proxy) werden nicht angetastet.
+			if (parsed.pathname === '' || parsed.pathname === '/') {
+				url += '/v2/check';
+			}
+		} catch {
+			// unverändert lassen
+		}
+	}
+	return url;
+}
+
 export async function checkText(text: string, options: LTCheckOptions): Promise<LTCheckResponse> {
 	const body = new URLSearchParams();
 	body.set('text', text);
@@ -67,8 +94,9 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 	if (options.apiKey && options.apiKey.trim()) body.set('apiKey', options.apiKey.trim());
 
 	let response: Response;
+	const checkUrl = normalizeCheckUrl(options.url);
 	try {
-		response = await fetch(options.url, {
+		response = await fetch(checkUrl, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded',
@@ -77,7 +105,7 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 		});
 	} catch (error) {
 		throw new LTError(
-			`Server nicht erreichbar (${hostOf(options.url)}): ${error instanceof Error ? error.message : String(error)}`,
+			`Server nicht erreichbar (${checkUrl}): ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 
@@ -89,8 +117,11 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 		} catch {
 			// Ignorieren
 		}
+		const hint = response.status === 404
+			? ' Hinweis: Die URL muss meist auf „/v2/check“ enden.'
+			: '';
 		throw new LTError(
-			`Server antwortete mit HTTP ${response.status}${detail ? ` – ${detail}` : ''}`,
+			`Server antwortete mit HTTP ${response.status} (${checkUrl})${detail ? ` – ${detail}` : ''}${hint}`,
 			response.status,
 		);
 	}
