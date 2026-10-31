@@ -28,7 +28,7 @@ export async function registerSettings(): Promise<void> {
 			section: 'languagetool',
 			public: true,
 			label: 'Server-URL',
-			description: 'Adresse des /v2/check-Endpunkts. Voreingestellt ist die kostenlose öffentliche LanguageTool-API (api.languagetool.org); alternativ die eigene Instanz, z. B. https://api.languagetool.org/v2/check',
+			description: 'Adresse des /v2/check-Endpunkts. Voreingestellt ist die kostenlose öffentliche LanguageTool-API (api.languagetool.org); alternativ die eigene Instanz, z. B. https://languagetool.example.org/v2/check',
 		},
 		'languagetool.language': {
 			value: 'auto',
