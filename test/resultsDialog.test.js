@@ -1,5 +1,5 @@
-// Echte DOM-Formularwerte plus Hauptskript-Ablauf mit gemockter Joplin-API.
-// Kein Serveraufruf und kein vollständiger Joplin-GUI-Test.
+// Real DOM form values and main-script flows using a mocked Joplin API.
+// No server requests; not a complete Joplin GUI test.
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -23,11 +23,11 @@ function loadSource(name, mocks = {}, cache = {}) {
 }
 
 const ui = loadSource('resultsDialog');
-const text = 'Dieser längere Satz enthält einen Tesdt und einen Feler zur Kontrolle.';
-const mistakes = ['Tesdt', 'Feler'].map((word) => ({
+const text = 'This longer sentence contains a Tesdt and some erors to check.';
+const mistakes = ['Tesdt', 'erors'].map((word) => ({
 	offset: text.indexOf(word), length: word.length, word,
-	message: 'Fehler <script>nicht ausführen</script>',
-	replacements: word === 'Tesdt' ? ['Test', 'Text'] : ['Fehler', ''],
+	message: 'Error <script>do not execute</script>',
+	replacements: word === 'Tesdt' ? ['Test', 'Text'] : ['errors', ''],
 	issueType: 'spelling', ruleId: 'TEST', ruleDescription: '', category: '',
 }));
 
@@ -35,16 +35,16 @@ function selectChoices(html) {
 	const dom = new JSDOM(html);
 	const doc = dom.window.document;
 	const form = doc.forms.ltForm;
-	assert.ok(doc.querySelector('.lt-context').textContent.includes('Dieser längere Satz'));
+	assert.ok(doc.querySelector('.lt-context').textContent.includes('This longer sentence'));
 	assert.strictEqual(doc.querySelector('mark').textContent, 'Tesdt');
 	assert.strictEqual(doc.querySelectorAll('script').length, 0, 'HTML escaped');
 	let submissions = 0;
 	form.addEventListener('submit', (event) => { submissions++; event.preventDefault(); });
-	// Native Radiobuttons bleiben im Dialog, kein Submit beim Anklicken.
+	// Native radio buttons stay in the dialog; clicking does not submit.
 	doc.querySelector('input[name=choice_0][value="0"]').click();
 	doc.querySelector('input[name=choice_1][value="0"]').click();
 	doc.querySelector('input[name=choice_0][value="1"]').click();
-	assert.strictEqual(submissions, 0, 'Auswahl schließt den Dialog nicht');
+	assert.strictEqual(submissions, 0, 'selection does not close the dialog');
 	const values = Object.fromEntries(new dom.window.FormData(form));
 	assert.deepStrictEqual(values, { choice_0: '1', choice_1: '0' });
 	assert.deepStrictEqual(ui.parseDialogChoices(values, mistakes), [
@@ -53,27 +53,27 @@ function selectChoices(html) {
 	return values;
 }
 
-selectChoices(ui.buildResultsHtml('Deutsch', mistakes, text, '', true));
-// Viele Fundstellen bleiben in einem begrenzten, tastaturbedienbaren
-// Scrollbereich. JSDOM prüft DOM/CSS und Formularwerte, nicht Pixel-Layout.
+selectChoices(ui.buildResultsHtml('English', mistakes, text, '', true));
+// Many matches remain in a bounded, keyboard-accessible scroll region.
+// JSDOM checks DOM/CSS and form values, not pixel layout.
 const manyMistakes = Array.from({ length: 100 }, () => mistakes[0]);
-const longDialog = new JSDOM(ui.buildResultsHtml('Deutsch', manyMistakes, text, '', true));
+const longDialog = new JSDOM(ui.buildResultsHtml('English', manyMistakes, text, '', true));
 const scroll = longDialog.window.document.querySelector('.lt-results-scroll');
 assert.ok(scroll.contains(longDialog.window.document.forms.ltForm));
-assert.strictEqual(scroll.tabIndex, 0, 'Scrollbereich per Tastatur erreichbar');
+assert.strictEqual(scroll.tabIndex, 0, 'scroll region is keyboard-accessible');
 const scrollStyle = longDialog.window.getComputedStyle(scroll);
 assert.strictEqual(scrollStyle.overflowY, 'scroll');
-assert.strictEqual(scrollStyle.minHeight, '0', 'Flex-Inhalt kann auf Dialoghöhe begrenzt werden');
+assert.strictEqual(scrollStyle.minHeight, '0', 'flex content can be constrained to dialog height');
 assert.strictEqual(longDialog.window.document.querySelectorAll('li').length, 100);
 longDialog.window.document.querySelector('input[name=choice_99][value="0"]').click();
 assert.strictEqual(new longDialog.window.FormData(
 	longDialog.window.document.forms.ltForm,
-).get('choice_99'), '0', 'auch letzte Fundstelle wird serialisiert');
+).get('choice_99'), '0', 'the final match is also serialized');
 assert.deepStrictEqual(ui.parseDialogChoices({ choice_0: '-1', choice_1: '99' }, mistakes), []);
 assert.deepStrictEqual(ui.parseDialogChoices({ choice_0: 'abc', choice_1: '' }, mistakes), []);
 assert.strictEqual(ui.validateBatch(text, []), null);
 const hostile = { ...mistakes[0], offset: 0, length: 8 };
-assert.ok(ui.contextHtml('<script>Hallo</script>', hostile).includes('&lt;script&gt;'));
+assert.ok(ui.contextHtml('<script>Hello</script>', hostile).includes('&lt;script&gt;'));
 const longText = 'A'.repeat(500) + 'Tesdt' + 'B'.repeat(500);
 const context = ui.contextHtml(longText, { ...mistakes[0], offset: 500 });
 assert.strictEqual((new JSDOM(context)).window.document.body.textContent.length, 367);
@@ -127,15 +127,15 @@ async function testMain(action) {
 				},
 				setButtons: async (handle, buttons) => {
 					if (handle === 'languagetool-results') assert.deepStrictEqual(
-						buttons.map((button) => button.title), ['Übernehmen', 'Abbrechen'],
+						buttons.map((button) => button.title), ['Apply', 'Cancel'],
 					);
 				},
 				open: async (handle) => {
 					if (handle !== 'languagetool-results') return { id: 'ok' };
 					resultsOpened++;
-					contentMessage({ type: 'ltTextChanged' }); // darf Auswahl nicht durch Neuprüfung entwerten
+					contentMessage({ type: 'ltTextChanged' }); // Rechecking must not invalidate the selection.
 					const formData = { ltForm: selectChoices(html) };
-					if (action === 'stale') currentText += ' geändert';
+					if (action === 'stale') currentText += ' changed';
 					if (action === 'note') note.id = 'n2';
 					return { id: action === 'cancel' ? 'cancel' : 'ok', formData };
 				},
@@ -144,7 +144,7 @@ async function testMain(action) {
 		},
 	};
 	const result = {
-		language: { name: 'Deutsch' },
+		language: { name: 'English' },
 		matches: mistakes.map((mistake) => ({
 			offset: mistake.offset, length: mistake.length, message: mistake.message,
 			replacements: mistake.replacements.map((value) => ({ value })),
@@ -163,22 +163,22 @@ async function testMain(action) {
 	});
 	await plugin.onStart();
 	await registered.languagetoolCheckNote.execute();
-	assert.strictEqual(resultsOpened, 1, 'Dialog nach gemeinsamer Übernahme nicht erneut geöffnet');
+	assert.strictEqual(resultsOpened, 1, 'dialog not reopened after batch application');
 	if (action === 'apply') {
 		assert.strictEqual(batchCalls, 1);
-		assert.strictEqual(currentText, text.replace('Tesdt', 'Text').replace('Feler', 'Fehler'));
-		assert.strictEqual(checks, 2, 'nach Übernahme lautlose Neuprüfung');
+		assert.strictEqual(currentText, text.replace('Tesdt', 'Text').replace('erors', 'errors'));
+		assert.strictEqual(checks, 2, 'silent recheck after applying');
 	} else if (action === 'cancel') {
 		assert.strictEqual(batchCalls, 0);
 		assert.strictEqual(currentText, text);
 	} else {
 		assert.strictEqual(checks, 1);
-		assert.ok(messages.some((message) => message.includes('nichts übernommen')));
+		assert.ok(messages.some((message) => message.includes('No changes were applied')));
 	}
-	if (action === 'note') assert.strictEqual(batchCalls, 0, 'andere Notiz wird nicht beschrieben');
+	if (action === 'note') assert.strictEqual(batchCalls, 0, 'no writes to a different note');
 }
 
 (async () => {
 	for (const action of ['apply', 'cancel', 'stale', 'note']) await testMain(action);
-	console.log('Dialog-DOM, Sammelauswahl, Hauptskript-Ablauf, Abbrechen und veraltete Auswahl: bestanden.');
+	console.log('Dialog DOM, batch selection, main-script flow, cancellation and stale selection tests passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

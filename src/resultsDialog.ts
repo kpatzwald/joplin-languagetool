@@ -17,7 +17,7 @@ export function escapeHtml(text: string): string {
 		.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// Jeweils bis zu 180 Zeichen vor und nach der Fundstelle.
+// Include up to 180 characters before and after each match.
 export function contextHtml(text: string, mistake: MistakePayload): string {
 	const from = Math.max(0, mistake.offset - 180);
 	const to = Math.min(text.length, mistake.offset + mistake.length + 180);
@@ -32,15 +32,15 @@ export function buildResultsHtml(
 	const items = mistakes.map((mistake, index) => {
 		const options = mistake.replacements.map((suggestion, suggestionIndex) =>
 			`<label class="lt-option"><input type="radio" name="choice_${index}" value="${suggestionIndex}" ${canApply ? '' : 'disabled'}>
-			<span>${escapeHtml(suggestion === '' ? '[Löschen]' : suggestion)}</span></label>`).join('');
+			<span>${escapeHtml(suggestion === '' ? '[Delete]' : suggestion)}</span></label>`).join('');
 		return `<li>
 			<h4>${escapeHtml(mistake.message)}</h4>
 			<div class="lt-context">${contextHtml(text, mistake)}</div>
-			<fieldset><legend>Korrektur auswählen</legend>
+			<fieldset><legend>Select a correction</legend>
 				<label class="lt-option"><input type="radio" name="choice_${index}" value="-1" checked>
-				<span>Unverändert lassen</span></label>${options}
+				<span>Leave unchanged</span></label>${options}
 			</fieldset>
-			<small>Regel: ${escapeHtml(mistake.ruleId)}${mistake.category ? ` (${escapeHtml(mistake.category)})` : ''}</small>
+			<small>Rule: ${escapeHtml(mistake.ruleId)}${mistake.category ? ` (${escapeHtml(mistake.category)})` : ''}</small>
 		</li>`;
 	}).join('');
 	return `<style>
@@ -64,13 +64,13 @@ export function buildResultsHtml(
 	</style>
 	<div class="lt-dialog">
 	<header class="lt-dialog-header">
-	<h3>LanguageTool-Prüfung</h3>
-	<p>${mistakes.length ? `${mistakes.length} Fundstelle(n), erkannte Sprache: ${escapeHtml(language)}` : 'Keine Fehler gefunden.'}</p>
-	<p>Wählen Sie bei beliebig vielen Fundstellen einen Vorschlag. Erst „Übernehmen“ ändert den Text.
-	„Abbrechen“ verwirft die gesamte Auswahl.</p>
-	${!canApply ? '<p>Übernahme nicht verfügbar: Bitte im Markdown-Editor erneut prüfen.</p>' : ''}
+	<h3>LanguageTool check</h3>
+	<p>${mistakes.length ? `${mistakes.length} match(es), detected language: ${escapeHtml(language)}` : 'No errors found.'}</p>
+	<p>Select a suggestion for as many matches as you like. Only "Apply" changes the text.
+	"Cancel" discards the entire selection.</p>
+	${!canApply ? '<p>Applying corrections is unavailable. Please check again in the Markdown editor.</p>' : ''}
 	</header>
-	<div class="lt-results-scroll" role="region" aria-label="Fundstellen und Korrekturvorschläge" tabindex="0">
+	<div class="lt-results-scroll" role="region" aria-label="Matches and correction suggestions" tabindex="0">
 	<form name="ltForm"><ul>${items}</ul></form>
 	${notes ? `<p class="lt-note">${escapeHtml(notes)}</p>` : ''}
 	</div>
@@ -90,7 +90,7 @@ export function parseDialogChoices(form: unknown, mistakes: MistakePayload[]): D
 	return choices;
 }
 
-// Alle Änderungen werden vor der ersten Textänderung geprüft.
+// Validate all edits before making the first text change.
 export function validateBatch(text: string, edits: unknown): BatchReplacement[] | null {
 	if (!Array.isArray(edits) || !edits.length) return null;
 	const sorted: BatchReplacement[] = [];

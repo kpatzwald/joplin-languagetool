@@ -1,5 +1,5 @@
-// Minimaler Client für die LanguageTool-HTTP-API (v2).
-// Dokumentation: https://api.languagetool.org/api/ (gilt auch für eigene Instanzen)
+// Minimal client for the LanguageTool HTTP API (v2).
+// Documentation: https://api.languagetool.org/api/ (also applies to self-hosted servers).
 
 export interface LTReplacement {
 	value: string;
@@ -56,28 +56,28 @@ function hostOf(url: string): string {
 	}
 }
 
-// Normalisiert die konfigurierte Server-URL: Schema ergänzen (falls
-// vergessen), Leer- und End-Schrägstriche entfernen und den üblichen
-// API-Pfad /v2/check ergänzen, falls nur der Host (oder .../v2) angegeben
-// ist. Eigene Pfade (z. B. hinter einem Reverse-Proxy) werden respektiert.
+// Normalizes the configured server URL: adds a missing scheme, removes
+// surrounding whitespace and trailing slashes, and appends the standard
+// /v2/check API path if only a host (or .../v2) is specified.
+// Preserves custom paths, e.g. behind a reverse proxy.
 export function normalizeCheckUrl(raw: string): string {
 	let url = String(raw || '').trim();
-	if (!url) throw new LTError('Keine Server-URL konfiguriert.');
+	if (!url) throw new LTError('No server URL configured.');
 	if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-	// End-Schrägstriche entfernen (nur ohne Query-String sinnvoll).
+	// Remove trailing slashes only when there is no query string.
 	if (!url.includes('?')) url = url.replace(/\/+$/, '');
 	if (/\/v2$/i.test(url)) {
 		url += '/check';
 	} else {
 		try {
 			const parsed = new URL(url);
-			// Nur ergänzen, wenn überhaupt kein Pfad angegeben ist – fremde
-			// Pfade (Reverse-Proxy) werden nicht angetastet.
+			// Only append if no path is specified; leave custom
+			// reverse-proxy paths unchanged.
 			if (parsed.pathname === '' || parsed.pathname === '/') {
 				url += '/v2/check';
 			}
 		} catch {
-			// unverändert lassen
+			// Leave unchanged.
 		}
 	}
 	return url;
@@ -105,7 +105,7 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 		});
 	} catch (error) {
 		throw new LTError(
-			`Server nicht erreichbar (${checkUrl}): ${error instanceof Error ? error.message : String(error)}`,
+			`Server unreachable (${checkUrl}): ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 
@@ -115,13 +115,13 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 			const text = await response.text();
 			detail = text.slice(0, 300);
 		} catch {
-			// Ignorieren
+			// Ignore.
 		}
 		const hint = response.status === 404
-			? ' Hinweis: Die URL muss meist auf „/v2/check“ enden.'
+			? ' Hint: the URL usually needs to end with "/v2/check".'
 			: '';
 		throw new LTError(
-			`Server antwortete mit HTTP ${response.status} (${checkUrl})${detail ? ` – ${detail}` : ''}${hint}`,
+			`Server returned HTTP ${response.status} (${checkUrl})${detail ? `: ${detail}` : ''}${hint}`,
 			response.status,
 		);
 	}
@@ -130,11 +130,11 @@ export async function checkText(text: string, options: LTCheckOptions): Promise<
 	try {
 		data = (await response.json()) as LTCheckResponse;
 	} catch {
-		throw new LTError('Antwort des Servers ist kein gültiges JSON.');
+		throw new LTError('The server response is not valid JSON.');
 	}
 
 	if (!data || !Array.isArray(data.matches)) {
-		throw new LTError('Unerwartete Antwortstruktur des Servers (keine "matches"-Liste).');
+		throw new LTError('Unexpected server response structure (no "matches" array).');
 	}
 
 	return data;

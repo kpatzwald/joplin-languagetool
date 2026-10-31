@@ -1,6 +1,6 @@
-// Test der URL-Normalisierung (normalizeCheckUrl aus src/languagetool.ts).
-// Das Modul wird vor dem Test mit tsc nach JavaScript kompiliert, damit
-// Quellcode und Test nicht auseinanderlaufen.
+// URL normalization tests (normalizeCheckUrl from src/languagetool.ts).
+// Compile the module to JavaScript with tsc before testing
+// so the test always checks the current source code.
 
 const assert = require('assert');
 const { execSync } = require('child_process');
@@ -14,10 +14,10 @@ execSync(
 		' --module commonjs --target es2020 --skipLibCheck --declaration false',
 	{ stdio: 'pipe' },
 );
-assert.ok(fs.existsSync(path.join(outDir, 'languagetool.js')), 'Kompilat erstellt');
+assert.ok(fs.existsSync(path.join(outDir, 'languagetool.js')), 'compiled module created');
 
 const { normalizeCheckUrl } = require(path.join(outDir, 'languagetool.js'));
-assert.strictEqual(typeof normalizeCheckUrl, 'function', 'Funktion exportiert');
+assert.strictEqual(typeof normalizeCheckUrl, 'function', 'function exported');
 
 const cases = [
 	['https://languagetool.example.org', 'https://languagetool.example.org/v2/check'],
@@ -34,10 +34,10 @@ const cases = [
 ];
 
 for (const [input, expected] of cases) {
-	assert.strictEqual(normalizeCheckUrl(input), expected, 'Eingabe: ' + input);
+	assert.strictEqual(normalizeCheckUrl(input), expected, 'Input: ' + input);
 }
 
-// Leere URL -> Fehler
-assert.throws(() => normalizeCheckUrl('   '), /Keine Server-URL/);
+// Empty URL: error.
+assert.throws(() => normalizeCheckUrl('   '), /No server URL/);
 
-console.log('Alle URL-Normalisierungstests bestanden (' + cases.length + ' F\u00e4lle).');
+console.log('All URL normalization tests passed (' + cases.length + ' cases).');

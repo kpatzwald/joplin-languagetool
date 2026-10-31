@@ -32,8 +32,8 @@ interface CheckState {
 	hash: number;
 	mistakes: MistakePayload[];
 	detectedLanguage: string;
-	// Eindeutiges Ergebnis-Token des Editors, wenn die Hervorhebungen
-	// tatsächlich übernommen wurden, sonst null.
+	// Unique editor result token if the highlights were
+	// actually accepted; null otherwise.
 	token: number | null;
 	text: string;
 }
@@ -60,17 +60,17 @@ async function showMessageBox(html: string): Promise<void> {
 		await joplin.views.dialogs.setHtml(handle, html);
 		await joplin.views.dialogs.open(handle);
 	} catch (error) {
-		console.warn('LanguageTool: Dialog konnte nicht geöffnet werden', error);
+		console.warn('LanguageTool: Could not open dialog', error);
 	}
 }
 
 async function clearEditor(): Promise<void> {
 	lastCheck = null;
-	checkSequence++; // laufende Prüfungen entwerten
+	checkSequence++; // Invalidate checks in progress.
 	try {
 		await joplin.commands.execute('editor.execCommand', { name: 'ltClearMistakes' });
 	} catch {
-		// Kein Editor vorhanden (z. B. Rich-Text-Editor) – nichts zu tun.
+		// No supported editor available (e.g. rich text editor); nothing to do.
 	}
 }
 
@@ -93,7 +93,7 @@ async function applyDialogReplacements(check: CheckState, choices: DialogChoice[
 		});
 		return accepted === true;
 	} catch (error) {
-		console.warn('LanguageTool: Korrektur aus dem Dialog fehlgeschlagen', error);
+		console.warn('LanguageTool: Applying corrections from the dialog failed', error);
 		return false;
 	}
 }
@@ -104,16 +104,16 @@ async function showResultsDialog(
 	notes: string,
 ): Promise<DialogChoice[] | null> {
 	resultsDialogOpen = true;
-	// Keine automatischen Prüfergebnisse dürfen die offene Auswahl ersetzen.
+	// Automatic check results must not replace the selection in an open dialog.
 	++checkSequence;
 	if (autoCheckTimer) clearTimeout(autoCheckTimer);
 	try {
 		const handle = await getDialog(RESULTS_DIALOG_ID);
 		await joplin.views.dialogs.setFitToContent(handle, false);
 		await joplin.views.dialogs.setButtons(handle, [
-			{ id: 'ok', title: 'Übernehmen' }, { id: 'cancel', title: 'Abbrechen' },
+			{ id: 'ok', title: 'Apply' }, { id: 'cancel', title: 'Cancel' },
 		]);
-		const language = result.language?.detectedLanguage?.name || result.language?.name || 'unbekannt';
+		const language = result.language?.detectedLanguage?.name || result.language?.name || 'unknown';
 		await joplin.views.dialogs.setHtml(handle, buildResultsHtml(
 			language, check.mistakes, check.text, notes, check.token !== null,
 		));
@@ -121,7 +121,7 @@ async function showResultsDialog(
 		if (dialogResult.id !== 'ok') return null;
 		return parseDialogChoices(dialogResult.formData?.ltForm, check.mistakes);
 	} catch (error) {
-		console.warn('LanguageTool: Ergebnisdialog konnte nicht geöffnet werden', error);
+		console.warn('LanguageTool: Could not open results dialog', error);
 		return null;
 	} finally {
 		resultsDialogOpen = false;
@@ -133,7 +133,7 @@ async function getEditorText(): Promise<string | undefined> {
 		const text = await joplin.commands.execute('editor.execCommand', { name: 'ltGetText' });
 		if (typeof text === 'string') return text;
 	} catch {
-		// Befehl nicht verfügbar – vermutlich kein Markdown-Editor.
+		// Command unavailable; probably not a Markdown editor.
 	}
 	return undefined;
 }
@@ -143,7 +143,7 @@ async function runCheck(showDialog: boolean): Promise<void> {
 	const settings = await getSettings();
 	const note = await joplin.workspace.selectedNote();
 	if (!note) {
-		if (showDialog) await showMessageBox('<p>Keine Notiz ausgewählt.</p>');
+		if (showDialog) await showMessageBox('<p>No note selected.</p>');
 		return;
 	}
 
@@ -178,13 +178,13 @@ async function runCheck(showDialog: boolean): Promise<void> {
 		console.warn(`LanguageTool: ${message}`);
 		if (showDialog) {
 			await showMessageBox(
-				`<p><b>LanguageTool-Prüfung fehlgeschlagen</b></p><p>${escapeHtml(message)}</p><p>Bitte Server-URL in den Einstellungen prüfen.</p>`,
+				`<p><b>LanguageTool check failed</b></p><p>${escapeHtml(message)}</p><p>Please check the server URL in the settings.</p>`,
 			);
 		}
 		return;
 	}
 
-	// Inzwischen neuere Prüfung gestartet? Dieses Ergebnis verwerfen.
+	// Discard this result if a newer check has started in the meantime.
 	if (seq !== checkSequence) return;
 
 	const hash = hashString(text);
@@ -199,12 +199,12 @@ async function runCheck(showDialog: boolean): Promise<void> {
 			});
 			token = typeof accepted === 'number' ? accepted : null;
 		} catch (error) {
-			console.warn('LanguageTool: Hervorhebungen konnten nicht gesetzt werden', error);
+			console.warn('LanguageTool: Could not set highlights', error);
 		}
 	}
 
-	// Erneut prüfen: während der Editor-Übergabe kann ein Löschen oder
-	// Notizwechsel stattgefunden haben.
+	// Check again: highlights may have been cleared or the selected note
+	// may have changed during the editor handoff.
 	if (seq !== checkSequence) return;
 
 	lastCheck = {
@@ -220,28 +220,28 @@ async function runCheck(showDialog: boolean): Promise<void> {
 		const notes: string[] = [];
 		if (!hasEditorIntegration) {
 			notes.push(
-				'Hervorhebungen sind nur im Markdown-Editor (CodeMirror) möglich. Rechtschreibprüfung im Rich-Text-Editor wird nicht unterstützt.',
+				'Highlights are only available in the Markdown editor (CodeMirror). Spell checking in the rich text editor is not supported.',
 			);
 		}
 		if (truncated) {
-			notes.push('Die Notiz wurde nur bis zur Textlänge-Begrenzung (30000 Zeichen) geprüft.');
+			notes.push('The note was only checked up to the text length limit (30000 characters).');
 		}
 		const dialogCheck = lastCheck;
 		const choices = await showResultsDialog(result, dialogCheck, notes.join(' '));
 		if (choices && choices.length) {
 			if (await applyDialogReplacements(dialogCheck, choices)) {
-				// Nach gemeinsamer Übernahme nur Hervorhebungen aktualisieren.
-				// Kein erneutes Öffnen des Dialogs.
+				// Only refresh highlights after applying the batch.
+				// Do not reopen the dialog.
 				await runCheck(false);
 			} else {
-				await showMessageBox('<p>Es wurde nichts übernommen: Die Notiz oder das Prüfergebnis hat sich geändert, oder die Auswahl enthält überlappende Fundstellen. Bitte erneut prüfen und je überlappender Textstelle nur eine Korrektur auswählen.</p>');
+				await showMessageBox('<p>No changes were applied: the note or check result has changed, or the selection contains overlapping matches. Please check again and select only one correction for each overlapping text range.</p>');
 			}
 		}
 	}
 }
 
-// Zeitpunkt der letzten automatischen Prüfung – dafür, dass Fehler
-// auch bei durchgehender Eingabe laufend erscheinen.
+// Time of the last automatic check, used to schedule checks
+// even during continuous typing.
 let lastAutoCheckAt = 0;
 
 function scheduleAutoCheck(): void {
@@ -251,10 +251,9 @@ function scheduleAutoCheck(): void {
 		if (resultsDialogOpen) return;
 		if (!settings.autoCheck) return;
 		if (autoCheckTimer) clearTimeout(autoCheckTimer);
-		// Nach jeder Eingabepause wird nach der Wartezeit geprüft. Wird
-		// weitergetippt, wird trotzdem spätestens alle 5 Sekunden geprüft,
-		// damit die Hervorhebungen auch während des Schreibens aktuell
-		// bleiben (wie in der Firefox-Erweiterung).
+		// Check after the configured delay following a typing pause.
+		// During continuous typing, start a check at least every 5 seconds.
+		// Network latency and stale-result rejection can delay highlights.
 		const delay = Math.max(300, settings.autoCheckDelay);
 		const sinceLastCheck = Date.now() - lastAutoCheckAt;
 		const wait = Math.min(delay, Math.max(0, 5000 - sinceLastCheck));
@@ -275,28 +274,28 @@ joplin.plugins.register({
 			'./contentScript.js',
 		);
 
-		// Live-Prüfung: Das Content-Script meldet jede Textänderung im Editor;
-		// scheduleAutoCheck() bündelt sie (Debounce) und startet die Prüfung
-		// erst, kurz nachdem die Eingabe endet.
+		// Live checking: the content script reports every editor text change.
+		// scheduleAutoCheck() debounces events, with a maximum wait
+		// during continuous typing.
 		await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: any) => {
 			if (message && message.type === 'ltTextChanged') scheduleAutoCheck();
 		});
 
-		// Notizwechsel: Hervorhebungen und veraltete Ergebnisse entfernen
-		// (clearEditor entwertet auch laufende Prüfungen über checkSequence)
+		// Note selection change: remove highlights and stale results.
+		// clearEditor also invalidates ongoing checks using checkSequence.
 		await joplin.workspace.onNoteSelectionChange(() => {
 			void clearEditor();
 			if (autoCheckTimer) clearTimeout(autoCheckTimer);
 		});
 
-		// Notizinhalt geändert: automatische Prüfung (falls aktiviert)
+		// Note content changed: schedule automatic checking if enabled.
 		await joplin.workspace.onNoteChange(() => {
 			scheduleAutoCheck();
 		});
 
 		await joplin.commands.register({
 			name: 'languagetoolCheckNote',
-			label: 'LanguageTool: Notiz prüfen',
+			label: 'LanguageTool: Check note',
 			iconName: 'fas fa-spell-check',
 			execute: async () => {
 				await runCheck(true);
@@ -305,7 +304,7 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolClear',
-			label: 'LanguageTool: Hervorhebungen entfernen',
+			label: 'LanguageTool: Clear highlights',
 			execute: async () => {
 				await clearEditor();
 			},
@@ -313,11 +312,11 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolReplace',
-			label: 'LanguageTool: Vorschlag übernehmen',
-			// Die Korrektur ist an das Prüfergebnis gebunden: Die Notiz muss
-			// noch ausgewählt sein und das Ergebnis-Token muss gültig sein.
-			// Das Content-Script prüft zusätzlich synchron Token und
-			// erwarteten Originaltext.
+			label: 'LanguageTool: Apply suggestion',
+			// A correction is bound to its check result: the note must still
+			// be selected and the result token must be valid. The content
+			// script also synchronously checks the token and expected
+			// original text.
 			execute: async (from: number, to: number, value: string, expected: string, resultToken: number) => {
 				const check = lastCheck;
 				if (!check || check.token === null) return;
@@ -330,14 +329,14 @@ joplin.plugins.register({
 						args: [from, to, value, expected, resultToken],
 					});
 				} catch (error) {
-					console.warn('LanguageTool: Korrektur fehlgeschlagen', error);
+					console.warn('LanguageTool: Applying correction failed', error);
 				}
 			},
 		});
 
 		await joplin.commands.register({
 			name: 'languagetoolIgnoreWord',
-			label: 'LanguageTool: Wort ignorieren',
+			label: 'LanguageTool: Ignore word',
 			execute: async (word: string) => {
 				if (!word || typeof word !== 'string') return;
 				const current = String((await joplin.settings.value('languagetool.ignoredWords')) || '');
@@ -348,7 +347,7 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'languagetoolIgnoreRule',
-			label: 'LanguageTool: Regel deaktivieren',
+			label: 'LanguageTool: Disable rule',
 			execute: async (ruleId: string) => {
 				if (!ruleId || typeof ruleId !== 'string') return;
 				const current = String((await joplin.settings.value('languagetool.disabledRules')) || '');
@@ -369,10 +368,9 @@ joplin.plugins.register({
 			ToolbarButtonLocation.NoteToolbar,
 		);
 
-		// Rechtsklickmenü im Editor: Korrekturvorschläge für die Fundstelle
-		// unter der Klickposition. Position und Text-Hash werden synchron aus
-		// dem Editor abgefragt; veraltete oder nicht angezeigte Ergebnisse
-		// liefern keine Menüpunkte.
+		// Editor context menu: suggestions for the match at the click position.
+		// Retrieve the position and text hash synchronously from the editor;
+		// stale results or results without highlights yield no menu entries.
 		await joplin.workspace.filterEditorContextMenu(async (object) => {
 			try {
 				const check = lastCheck;
@@ -398,7 +396,7 @@ joplin.plugins.register({
 
 				for (const suggestion of mistake.replacements.slice(0, 6)) {
 					items.push({
-						label: suggestion === '' ? 'Löschen' : `„${suggestion}"`,
+						label: suggestion === '' ? 'Delete' : `"${suggestion}"`,
 						commandName: 'languagetoolReplace',
 						commandArgs: [
 							mistake.offset,
@@ -414,13 +412,13 @@ joplin.plugins.register({
 					items.push({ type: 'separator' });
 				}
 				items.push({
-					label: `„${mistake.word}" immer ignorieren`,
+					label: `Always ignore "${mistake.word}"`,
 					commandName: 'languagetoolIgnoreWord',
 					commandArgs: [mistake.word],
 				});
 				if (mistake.ruleId) {
 					items.push({
-						label: `Regel „${mistake.ruleId}" deaktivieren`,
+						label: `Disable rule "${mistake.ruleId}"`,
 						commandName: 'languagetoolIgnoreRule',
 						commandArgs: [mistake.ruleId],
 					});
@@ -428,7 +426,7 @@ joplin.plugins.register({
 
 				object.items = [...object.items, ...items];
 			} catch (error) {
-				console.warn('LanguageTool: Kontextmenü-Fehler', error);
+				console.warn('LanguageTool: Context menu error', error);
 			}
 			return object;
 		});

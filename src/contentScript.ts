@@ -1,8 +1,8 @@
-// Content-Script für den CodeMirror-6-Markdown-Editor von Joplin.
+// Content script for Joplin's CodeMirror 6 Markdown editor.
 //
-// Registriert Editor-Befehle (aufrufbar aus dem Hauptskript über
-// `editor.execCommand`), hält die Fehler-Hervorhebungen in einem StateField
-// und merkt sich synchron die Position des letzten Rechtsklicks.
+// Registers editor commands (called from the main script using
+// `editor.execCommand`), stores error highlights in a StateField,
+// and synchronously records the most recent right-click position.
 
 import { Range, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView } from '@codemirror/view';
@@ -30,8 +30,8 @@ const clearMistakesEffect = StateEffect.define<null>();
 const setResultTokenEffect = StateEffect.define<number>();
 const clearResultTokenEffect = StateEffect.define<null>();
 
-// Eindeutige Kennung des aktuell gültigen Prüfergebnisses. Wird bei
-// jeder Textänderung und beim Löschen der Hervorhebungen ungültig.
+// Unique identifier of the currently valid check result. Invalidated
+// whenever the text changes or highlights are cleared.
 const resultTokenField = StateField.define<number | null>({
 	create: () => null,
 	update(value, tr) {
@@ -53,7 +53,7 @@ function classForIssueType(issueType: string): string {
 		case 'style':
 			return 'lt-style';
 		default:
-			// Grammatik, Zeichensetzung, Typografie usw.
+			// Grammar, punctuation, typography, etc.
 			return 'lt-grammar';
 	}
 }
@@ -61,8 +61,8 @@ function classForIssueType(issueType: string): string {
 const mistakeField = StateField.define<DecorationSet>({
 	create: () => Decoration.none,
 	update(value: DecorationSet, tr) {
-		// Sobald sich der Dokumenttext ändert, sind alle bestehenden
-		// Hervorhebungen veraltet und werden verworfen.
+		// As soon as the document text changes, all existing
+		// highlights are stale and must be discarded.
 		if (tr.docChanged) {
 			value = Decoration.none;
 		} else {
@@ -98,23 +98,22 @@ export default (context: ContentScriptContext) => {
 		plugin: (codeMirrorWrapper: any) => {
 			const view: EditorView | undefined = codeMirrorWrapper?.cm6 ?? codeMirrorWrapper?.editor;
 			if (!view) {
-				console.warn('LanguageTool: kein EditorView gefunden – Content-Script inaktiv.');
+				console.warn('LanguageTool: No EditorView found; content script inactive.');
 				return;
 			}
 
-			// Position des letzten Rechtsklicks im Dokument (synchron beim
-			// contextmenu-DOM-Ereignis gesetzt, bevor das Menü aufgebaut wird).
+			// Last right-click position in the document (set synchronously
+			// on the contextmenu DOM event, before the menu is built).
 			let lastClickContext: ClickContext | null = null;
 
-			// Zähler für eindeutige Ergebnis-Token.
+			// Counter for unique result tokens.
 			let resultTokenCounter = 0;
 
 			codeMirrorWrapper.addExtension(mistakeField);
 			codeMirrorWrapper.addExtension(resultTokenField);
 
-			// Meldet Textänderungen (jede Eingabe) an das Hauptskript, das die
-			// eigentliche Prüfung mit Verzögerung (Debounce) auslöst. So
-			// werden Fehler bereits beim Tippen unterstrichen.
+			// Report every text change to the main script, which schedules
+			// debounced checks for live highlighting.
 			const textChangedField = StateField.define<number>({
 				create: () => 0,
 				update: (value, tr) => {
@@ -122,7 +121,7 @@ export default (context: ContentScriptContext) => {
 						try {
 							void context.postMessage({ type: 'ltTextChanged' });
 						} catch {
-							// Meldung ist optional – Prüfung ohne Live-Feedback möglich.
+							// Notification is optional; manual checking still works.
 						}
 					}
 					return value;
@@ -133,32 +132,31 @@ export default (context: ContentScriptContext) => {
 			const currentText = (): string => view.state.doc.toString();
 			const currentHash = (): number => hashString(currentText());
 
-			// Aktuellen Editor-Text abfragen (identisch zum Notiz-Text).
+			// Retrieve the current editor text (identical to the note text).
 			codeMirrorWrapper.registerCommand('ltGetText', () => currentText());
 
 			codeMirrorWrapper.registerCommand('ltGetHash', () => currentHash());
 
-			// Position des letzten Rechtsklicks abfragen (für das Kontextmenü).
-			// Der Kontext wird beim Lesen verbraucht, damit ein späterer
-			// Menüaufruf ohne neues Klickereignis keine alten Daten liefert.
+			// Retrieve the last right-click position for the context menu.
+			// Reading consumes the context so a later menu request
+			// without a new click cannot return old data.
 			codeMirrorWrapper.registerCommand('ltGetClickContext', () => {
 				const context = lastClickContext;
 				lastClickContext = null;
-				// Veralteter Kontext (Text hat sich seit dem Klick geändert)?
+				// Stale context (text changed since the click)?
 				if (context && context.hash !== currentHash()) return null;
 				return context;
 			});
 
-			// Fehler-Hervorhebungen setzen. Veraltete Ergebnisse (Text hat sich
-			// seit der Prüfung geändert) werden verworfen und nicht angewendet.
-			// Übergibt die Hervorhebungen und liefert bei Erfolg ein
-			// eindeutiges Ergebnis-Token zurück, sonst false.
+			// Set error highlights. Discard stale results if the text has
+			// changed since the check. Return a unique result token
+			// when highlights are accepted, or false otherwise.
 			codeMirrorWrapper.registerCommand('ltShowMistakes', (payload: ShowMistakesPayload | undefined) => {
 				if (!payload || typeof payload.hash !== 'number' || !Array.isArray(payload.mistakes)) {
 					return false;
 				}
 				if (currentHash() !== payload.hash) {
-					console.info('LanguageTool: Prüfergebnis verworfen – Text hat sich geändert.');
+					console.info('LanguageTool: Check result discarded; text has changed.');
 					return false;
 				}
 				const token = ++resultTokenCounter;
@@ -173,8 +171,8 @@ export default (context: ContentScriptContext) => {
 				return true;
 			});
 
-			// Ein einziger CodeMirror-Schreibvorgang, alle Positionen beziehen
-			// sich auf denselben Originaltext. Keine Teilanwendung bei Fehlern.
+			// One CodeMirror write operation; all positions refer to the
+			// same original text. No partial application on failure.
 			codeMirrorWrapper.registerCommand(
 				'ltReplaceBatch',
 				(edits: unknown, resultToken: number, expectedDocument: string) => {
@@ -192,27 +190,27 @@ export default (context: ContentScriptContext) => {
 				},
 			);
 
-			// Einen Bereich des Texts ersetzen. Gebunden an das aktuelle
-			// Prüfergebnis: Das Ergebnis-Token muss noch gültig sein (ungültig
-			// nach jeder Textänderung, nach ltClearMistakes oder einem neueren
-			// Prüfergebnis) und der zu ersetzende Text muss unverändert sein.
+			// Replace a text range, bound to the current check result.
+			// The result token must still be valid (invalidated by any text
+			// change, ltClearMistakes, or a newer check result), and the
+			// text being replaced must be unchanged.
 			codeMirrorWrapper.registerCommand(
 				'ltReplaceRange',
 				(from: number, to: number, text: string, expected: string, resultToken: number) => {
 					const activeToken = view.state.field(resultTokenField, false);
 					if (typeof resultToken !== 'number' || activeToken === null || activeToken !== resultToken) {
-						console.info('LanguageTool: Korrektur abgelehnt – kein gültiges Prüfergebnis.');
+						console.info('LanguageTool: Correction rejected; no valid check result.');
 						return false;
 					}
 					if (typeof from !== 'number' || typeof to !== 'number' || typeof text !== 'string' || typeof expected !== 'string') {
 						return false;
 					}
 					if (from < 0 || to < from || to > view.state.doc.length) {
-						console.info('LanguageTool: Korrektur abgelehnt – Bereich außerhalb des Dokuments.');
+						console.info('LanguageTool: Correction rejected; range outside the document.');
 						return false;
 					}
 					if (view.state.doc.sliceString(from, to) !== expected) {
-						console.info('LanguageTool: Korrektur abgelehnt – Text hat sich geändert.');
+						console.info('LanguageTool: Correction rejected; text has changed.');
 						return false;
 					}
 					view.dispatch({ changes: { from, to, insert: text } });
@@ -223,8 +221,8 @@ export default (context: ContentScriptContext) => {
 			view.dom.addEventListener(
 				'contextmenu',
 				(event: MouseEvent) => {
-					// Alten Kontext immer verwerfen; nur bei gültiger
-					// Position neu befüllen.
+					// Always discard the old context; only set a new
+					// context for a valid position.
 					lastClickContext = null;
 					try {
 						const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });

@@ -1,11 +1,11 @@
-// Gemeinsame Typen und Hilfsfunktionen, die sowohl im Hauptskript als auch
-// im Editor-Content-Script verwendet werden (jedes Bundle erhält seine eigene Kopie).
+// Shared types and helpers used by the main script and editor content script.
+// Each bundle receives its own copy.
 
-// Maximale Textlänge, die an LanguageTool geschickt wird. Das entspricht dem
-// Standardwert von LanguageTool (serverseitig konfigurierbar über maxCheckLength).
+// Maximum text length sent to LanguageTool. Matches the LanguageTool default
+// (configurable on the server using maxCheckLength).
 export const LT_MAX_TEXT = 30000;
 
-// Ein Treffer aus der LanguageTool-Antwort (nur die benötigten Felder).
+// A match from the LanguageTool response (only the fields we need).
 export interface LTMatch {
 	message: string;
 	shortMessage?: string;
@@ -24,7 +24,7 @@ export interface LTMatch {
 }
 
 export interface MistakePayload {
-	// Absolute Position im Notiz-Text (0-basiert, wie im Editor-Dokument)
+	// Absolute position in the note text (zero-based, as in the editor document).
 	offset: number;
 	length: number;
 	word: string;
@@ -36,8 +36,8 @@ export interface MistakePayload {
 	category: string;
 }
 
-// Einfacher, schneller String-Hash (djb2). Muss in Hauptskript und
-// Content-Script identisch sein, damit veraltete Ergebnisse erkannt werden.
+// Simple, fast string hash (djb2). Must be identical in the main script and
+// content script so that stale results can be detected.
 export function hashString(s: string): number {
 	let h = 5381;
 	for (let i = 0; i < s.length; i++) {
@@ -46,13 +46,12 @@ export function hashString(s: string): number {
 	return h;
 }
 
-// Wandelt einen LanguageTool-Treffer in ein Highlight-Payload um.
-// `originalText` ist der Notiztext, `maskedText` der zur Prüfung gesendete
-// (längengleiche) Text. Treffer, die (teilweise) ausgeblendete Markdown-
-// Syntax überdecken, werden verworfen: Eine Korrektur könnte sonst
-// Formatierung zerstören. Ebenso Treffer, die nur Leerzeichen umfassen
-// (Rauschen durch die Markdown-Ausblendung), und Wörter aus dem eigenen
-// Wörterbuch.
+// Converts a LanguageTool match to a highlighting payload.
+// `originalText` is the note text; `maskedText` is the text sent for checking,
+// with the same length. Reject matches that overlap masked Markdown syntax:
+// applying a correction there could damage formatting. Also reject matches
+// containing only whitespace (noise from Markdown masking) and words in the
+// personal dictionary.
 export function mistakeToPayload(
 	match: LTMatch,
 	originalText: string,
@@ -84,7 +83,7 @@ export function mistakeToPayload(
 		offset: match.offset,
 		length: match.length,
 		word,
-		message: String(match.message || match.rule?.description || 'Unbekannter Fehler'),
+		message: String(match.message || match.rule?.description || 'Unknown error'),
 		replacements,
 		issueType: String(match.rule?.issueType || match.type?.typeName || 'other'),
 		ruleId: String(match.rule?.id || ''),

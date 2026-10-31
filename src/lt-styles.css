@@ -1,20 +1,20 @@
-/* Hervorhebungen für LanguageTool-Fundstellen */
+/* Highlights for LanguageTool matches. */
 
-/* Rechtschreibung: rote Wellenlinie */
+/* Spelling: red wavy underline. */
 .lt-spelling {
 	text-decoration: underline wavy #d32f2f;
 	text-decoration-thickness: 2px;
 	text-underline-offset: 3px;
 }
 
-/* Grammatik/Zeichensetzung: orange Wellenlinie */
+/* Grammar/punctuation: orange wavy underline. */
 .lt-grammar {
 	text-decoration: underline wavy #e65100;
 	text-decoration-thickness: 2px;
 	text-underline-offset: 3px;
 }
 
-/* Stil: graue gepunktete Linie */
+/* Style: gray dotted underline. */
 .lt-style {
 	text-decoration: underline dotted #9e9e9e;
 	text-decoration-thickness: 2px;
