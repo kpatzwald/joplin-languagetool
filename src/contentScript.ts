@@ -92,7 +92,7 @@ const mistakeField = StateField.define<DecorationSet>({
 	provide: (field) => EditorView.decorations.from(field),
 });
 
-export default (_context: ContentScriptContext) => {
+export default (context: ContentScriptContext) => {
 	return {
 		plugin: (codeMirrorWrapper: any) => {
 			const view: EditorView | undefined = codeMirrorWrapper?.cm6 ?? codeMirrorWrapper?.editor;
@@ -110,6 +110,24 @@ export default (_context: ContentScriptContext) => {
 
 			codeMirrorWrapper.addExtension(mistakeField);
 			codeMirrorWrapper.addExtension(resultTokenField);
+
+			// Meldet Textänderungen (jede Eingabe) an das Hauptskript, das die
+			// eigentliche Prüfung mit Verzögerung (Debounce) auslöst. So
+			// werden Fehler bereits beim Tippen unterstrichen.
+			const textChangedField = StateField.define<number>({
+				create: () => 0,
+				update: (value, tr) => {
+					if (tr.docChanged) {
+						try {
+							void context.postMessage({ type: 'ltTextChanged' });
+						} catch {
+							// Meldung ist optional – Prüfung ohne Live-Feedback möglich.
+						}
+					}
+					return value;
+				},
+			});
+			codeMirrorWrapper.addExtension(textChangedField);
 
 			const currentText = (): string => view.state.doc.toString();
 			const currentHash = (): number => hashString(currentText());

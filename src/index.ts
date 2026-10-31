@@ -78,9 +78,18 @@ function buildResultsHtml(
 ): string {
 	const language = result.language?.detectedLanguage?.name || result.language?.name || 'unbekannt';
 	const items = mistakes
-		.map((mistake) => {
-			const suggestions = mistake.replacements.length
-				? `<div class="lt-sugg">Vorschläge: ${escapeHtml(mistake.replacements.map((r) => (r === '' ? '[Löschen]' : r)).join(' · '))}</div>`
+		.map((mistake, mistakeIndex) => {
+			// Vorschlag als Button im Formular: Ein Klick übernimmt ihn in den
+			// Text (das Formular schließt den Dialog, das Hauptskript wendet
+			// die Korrektur token-gesichert an und prüft anschließend neu).
+			const suggestionButtons = mistake.replacements
+				.map((r, suggestionIndex) => {
+					const label = r === '' ? 'Löschen' : r;
+					return `<button type="submit" class="lt-sugg-btn" name="ltReplace" value="${mistakeIndex}:${suggestionIndex}">${escapeHtml(label)}</button>`;
+				})
+				.join(' ');
+			const suggestions = suggestionButtons
+				? `<div class="lt-sugg">Vorschläge: ${suggestionButtons}</div>`
 				: '';
 			return `
 				<li>
@@ -99,26 +108,72 @@ function buildResultsHtml(
 			li { margin-bottom: 10px; }
 			.lt-msg { font-weight: bold; }
 			.lt-word { color: #b00020; margin: 2px 0; }
-			.lt-sugg { color: #1a7f37; }
+			.lt-sugg { color: #1a7f37; margin: 3px 0; }
 			.lt-rule { color: #888; font-size: 12px; }
 			.lt-note { color: #888; margin-top: 12px; font-size: 12px; }
+			.lt-sugg-btn { background: #f0f0f0; border: 1px solid #bbb; border-radius: 4px; padding: 2px 8px; margin: 1px 3px 1px 0; cursor: pointer; font-size: 13px; }
+			.lt-sugg-btn:hover { background: #e0e0e0; }
 		</style>
 		<h3>LanguageTool-Prüfung</h3>
 		<p>${mistakes.length === 0 ? 'Keine Fehler gefunden.' : `${mistakes.length} Fundstelle(n) – erkannte Sprache: ${escapeHtml(language)}`}</p>
-		${mistakes.length ? `<ul>${items}</ul>` : ''}
+		<form name="ltForm">
+			<button type="submit" name="ltNoop" value="1" style="display:none"></button>
+			${mistakes.length ? `<ul>${items}</ul>` : ''}
+		</form>
 		${ignoredWordsNote ? `<p class="lt-note">${escapeHtml(ignoredWordsNote)}</p>` : ''}
 	`;
 }
 
-async function showResultsDialog(result: LTCheckResponse, mistakes: MistakePayload[], notes: string): Promise<void> {
+interface DialogReplaceRequest {
+	mistakeIndex: number;
+	suggestionIndex: number;
+}
+
+// Wendet eine aus dem Dialog gewählte Korrektur an (gleiches token-gesichertes
+// Verfahren wie beim Rechtsklick im Editor).
+async function applyDialogReplacement(request: DialogReplaceRequest): Promise<boolean> {
+	const check = lastCheck;
+	if (!check || check.token === null) return false;
+	const mistake = check.mistakes[request.mistakeIndex];
+	if (!mistake) return false;
+	const suggestion = mistake.replacements[request.suggestionIndex];
+	if (typeof suggestion !== 'string') return false;
+	try {
+		const accepted = await joplin.commands.execute('editor.execCommand', {
+			name: 'ltReplaceRange',
+			args: [mistake.offset, mistake.offset + mistake.length, suggestion, mistake.word, check.token],
+		});
+		return accepted === true;
+	} catch (error) {
+		console.warn('LanguageTool: Korrektur aus dem Dialog fehlgeschlagen', error);
+		return false;
+	}
+}
+
+async function showResultsDialog(
+	result: LTCheckResponse,
+	mistakes: MistakePayload[],
+	notes: string,
+): Promise<DialogReplaceRequest | null> {
 	try {
 		const handle = await getDialog(RESULTS_DIALOG_ID);
 		await joplin.views.dialogs.setFitToContent(handle, true);
 		await joplin.views.dialogs.setButtons(handle, [{ id: 'ok', title: 'Schließen' }]);
 		await joplin.views.dialogs.setHtml(handle, buildResultsHtml(result, mistakes, notes));
-		await joplin.views.dialogs.open(handle);
+		const dialogResult = await joplin.views.dialogs.open(handle);
+
+		// Gewählter Vorschlag? Formular-Buttons liefern "FehlerIndex:VorschlagIndex".
+		const raw = (dialogResult as any)?.formData?.ltForm?.ltReplace;
+		if (typeof raw !== 'string') return null;
+		const [mistakeIndex, suggestionIndex] = raw.split(':').map(Number);
+		if (!Number.isInteger(mistakeIndex) || !Number.isInteger(suggestionIndex)) return null;
+		if (mistakeIndex < 0 || mistakeIndex >= mistakes.length) return null;
+		const mistake = mistakes[mistakeIndex];
+		if (suggestionIndex < 0 || suggestionIndex >= mistake.replacements.length) return null;
+		return { mistakeIndex, suggestionIndex };
 	} catch (error) {
 		console.warn('LanguageTool: Ergebnisdialog konnte nicht geöffnet werden', error);
+		return null;
 	}
 }
 
@@ -218,7 +273,12 @@ async function runCheck(showDialog: boolean): Promise<void> {
 		if (truncated) {
 			notes.push('Die Notiz wurde nur bis zur Textlänge-Begrenzung (30000 Zeichen) geprüft.');
 		}
-		await showResultsDialog(result, mistakes, notes.join(' '));
+		const request = await showResultsDialog(result, mistakes, notes.join(' '));
+		if (request && (await applyDialogReplacement(request))) {
+			// Korrektur wurde angewendet: Hervorhebungen aktualisieren und den
+			// Dialog mit dem neuen Prüfergebnis erneut öffnen.
+			await runCheck(true);
+		}
 	}
 }
 
@@ -242,6 +302,13 @@ joplin.plugins.register({
 			CONTENT_SCRIPT_ID,
 			'./contentScript.js',
 		);
+
+		// Live-Prüfung: Das Content-Script meldet jede Textänderung im Editor;
+		// scheduleAutoCheck() bündelt sie (Debounce) und startet die Prüfung
+		// erst, kurz nachdem die Eingabe endet.
+		await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: any) => {
+			if (message && message.type === 'ltTextChanged') scheduleAutoCheck();
+		});
 
 		// Notizwechsel: Hervorhebungen und veraltete Ergebnisse entfernen
 		// (clearEditor entwertet auch laufende Prüfungen über checkSequence)
