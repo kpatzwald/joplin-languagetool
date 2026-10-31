@@ -1,6 +1,6 @@
 # LanguageTool-Plugin für Joplin
 
-Rechtschreib- und Grammatikprüfung für Joplin-Notizen über LanguageTool. Voreingestellt ist die **kostenlose öffentliche API** (https://api.languagetool.org); alternativ kann in den Einstellungen ein **eigener Server** hinterlegt werden (z. B. https://api.languagetool.org) – dann bleiben die Prüftexte im eigenen Netz.
+Rechtschreib- und Grammatikprüfung für Joplin-Notizen über LanguageTool. Voreingestellt ist die **kostenlose öffentliche API** (https://api.languagetool.org); alternativ kann in den Einstellungen ein **eigener Server** hinterlegt werden (z. B. https://languagetool.example.org) – dann bleiben die Prüftexte im eigenen Netz.
 
 Basiert in Teilen auf [tito21/joplin-langugetool](https://github.com/tito21/joplin-langugetool) (MIT), wurde aber für den aktuellen CodeMirror-6-Editor von Joplin neu entwickelt.
 
@@ -18,7 +18,7 @@ Basiert in Teilen auf [tito21/joplin-langugetool](https://github.com/tito21/jopl
 
 - Joplin **ab Version 3.1.1** mit dem **Markdown-Editor** (CodeMirror 6, seit Joplin 3.4 der Standard-Editor; in Joplin 3.1–3.3 ggf. in den Einstellungen aktivieren).
 - Der Rich-Text-Editor (WYSIWYG) wird nicht unterstützt.
-- Ein erreichbarer LanguageTool-Endpunkt: voreingestellt die öffentliche API `https://api.languagetool.org/v2/check` (getestet, LanguageTool 6.9-SNAPSHOT, API v1) oder die eigene Instanz (getestet mit LanguageTool 6.8, z. B. `https://api.languagetool.org/v2/check`).
+- Ein erreichbarer LanguageTool-Endpunkt: voreingestellt die öffentliche API `https://api.languagetool.org/v2/check` (getestet, LanguageTool 6.9-SNAPSHOT, API v1) oder die eigene Instanz (getestet mit LanguageTool 6.8, z. B. `https://languagetool.example.org/v2/check`).
 
 ## Installation
 
@@ -63,18 +63,18 @@ Die fertige `.jpl` liegt dann in `publish/`. Zum lokalen Testen kann man in Jopl
 ## Technische Hinweise und Grenzen
 
 - **Öffentliche Gratis-API:** anonyme Nutzung ist auf ca. 20 Anfragen pro Minute begrenzt; bei häufiger automatischer Prüfung oder vielen Fehlern kann die API daher vorübergehend Anfragen ablehnen. Eigene Instanz oder Premium-Account (Benutzername/API-Schlüssel in den Einstellungen) heben das Limit.
-- Die Server-URL wird automatisch normalisiert: Fehlende Schemata (https://), überzählige Schrägstriche und der übliche Pfad `/v2/check` werden ergänzt – `https://api.languagetool.org` funktioniert also genauso wie `https://api.languagetool.org/v2/check`. Eigene Pfade (z. B. hinter einem Reverse-Proxy) bleiben unverändert.
-- Die Netzwerkkommunikation läuft ausschließlich zwischen Joplin und dem konfigurierten Server – es gibt keinen automatischen Fallback auf andere Dienste. **Hinweis Datenschutz:** Bei Verwendung der öffentlichen API werden die geprüften Textabschnitte an die Server von languagetool.org übertragen. Für sensible Notizen die eigene Instanz (z. B. api.languagetool.org) eintragen.
+- Die Server-URL wird automatisch normalisiert: Fehlende Schemata (https://), überzählige Schrägstriche und der übliche Pfad `/v2/check` werden ergänzt – `https://languagetool.example.org` funktioniert also genauso wie `https://languagetool.example.org/v2/check`. Eigene Pfade (z. B. hinter einem Reverse-Proxy) bleiben unverändert.
+- Die Netzwerkkommunikation läuft ausschließlich zwischen Joplin und dem konfigurierten Server – es gibt keinen automatischen Fallback auf andere Dienste. **Hinweis Datenschutz:** Bei Verwendung der öffentlichen API werden die geprüften Textabschnitte an die Server von languagetool.org übertragen. Für sensible Notizen die eigene Instanz eintragen.
 - Prüfergebnisse sind an den Text gebunden, für den sie erzeugt wurden: Ändert sich der Notiztext oder wird die Notiz gewechselt, werden veraltete Ergebnisse verworfen und nicht mehr angewendet.
 - **Korrekturen sind ergebnisgebunden abgesichert (seit v1.1.0):** Jedes Prüfergebnis erhält ein eindeutiges Ergebnis-Token, das bei jeder Textänderung, nach dem Verwerfen der Hervorhebungen und durch jedes neuere Prüfergebnis entwertet wird. Eine Korrektur wird nur angewendet, wenn Notiz, Text und Token noch zum Prüfergebnis passen – veraltete Korrekturen werden abgelehnt. Zusätzlich prüft das Plugin synchron, ob der zu ersetzende Text unverändert ist, und korrigiert nur innerhalb der Dokumentgrenzen.
 - Notizen werden nur bis 30000 Zeichen geprüft (Standard-Limit von LanguageTool, serverseitig über `maxCheckLength` konfigurierbar).
 - Rechtsklick-Korrekturvorschläge und der Ergebnisdialog sind Desktop-Funktionen. Auf Joplin Mobile stehen sie derzeit nicht zur Verfügung.
 - Bekanntes Limitat: Wörter direkt nach Markdown-Listenpunkten oder Checkboxen können von LanguageTool fälschlich als Groß-/Kleinschreibungsfehler (Regel DE_CASE) gemeldet werden, weil Listenpunkte bei der Prüfung ausgeblendet werden. Über das Kontextmenü lässt sich die Regel zwar deaktivieren – das wirkt dann aber global für alle Notizen, was nicht empfehlenswert ist.
-- Das Plugin wurde gegen die öffentliche API (api.languagetool.org, LanguageTool 6.9-SNAPSHOT) und gegen LanguageTool 6.8 auf api.languagetool.org getestet; ein Laufzeittest in der Joplin-GUI stand bei Erstellung noch aus (siehe Abschnitt „Status“).
+- Das Plugin wurde gegen die öffentliche API (api.languagetool.org, LanguageTool 6.9-SNAPSHOT) und gegen LanguageTool 6.8 auf die eigene Instanz getestet; ein Laufzeittest in der Joplin-GUI stand bei Erstellung noch aus (siehe Abschnitt „Status“).
 
 ## Status
 
-Build und Paketierung geprüft, die automatisierten Content-Script-Integrationstests sind bestanden, der API-Aufruf wurde gegen die öffentliche API (api.languagetool.org) und früher gegen LanguageTool 6.8 auf api.languagetool.org verifiziert. Ein Laufzeittest in der Joplin-GUI (Hervorhebungen, Kontextmenü, Einstellungen) steht noch aus – Feedback ist willkommen.
+Build und Paketierung geprüft, die automatisierten Content-Script-Integrationstests sind bestanden, der API-Aufruf wurde gegen die öffentliche API (api.languagetool.org) und früher gegen LanguageTool 6.8 auf die eigene Instanz verifiziert. Ein Laufzeittest in der Joplin-GUI (Hervorhebungen, Kontextmenü, Einstellungen) steht noch aus – Feedback ist willkommen.
 
 ## Lizenz
 
